@@ -2,6 +2,8 @@
 require "asmjit"
 
 module HawthJit
+  C = RubyVM::MJIT.const_get(:C)
+
   def self.asm_double
     x86 = AsmJIT::X86
     code = AsmJIT::CodeHolder.new
@@ -31,10 +33,7 @@ module HawthJit
   end
 
   def self.compile(iseq_ptr)
-    if iseq_ptr.body.location.label == "double"
-      puts "JIT compiling #{iseq_ptr}"
-      asm_double
-    end
+    Compiler.new(iseq_ptr).compile
   end
 
   def self.enable
@@ -47,3 +46,5 @@ module HawthJit
     RubyVM::MJIT.resume
   end
 end
+
+require "hawthjit/compiler"
