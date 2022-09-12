@@ -20,7 +20,7 @@ module HawthJit
         "#{name}=#{inspect_value}"
       end
 
-      ID2SYM = Fiddle::Function.new(Fiddle.dlopen(nil)["rb_id2sym"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_VOIDP)
+      ID2SYM = Fiddle::Function.new(Fiddle::Handle::DEFAULT["rb_id2sym"], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_VOIDP)
 
       class CallInfo
         attr_reader :argc, :flag, :mid, :sym
