@@ -141,9 +141,9 @@ module HawthJit
 
     def compile_getlocal_WC_0(insn)
       cfp_reg = :rsi
-      cfp_sp_ptr = X86.qword_ptr(cfp_reg, 0x8)
-      asm.mov(:rax, cfp_sp_ptr) # sp = cfp->sp
-      local0_offset = -(insn[:idx] + 1) * 8
+      cfp_ep_ptr = X86.qword_ptr(cfp_reg, 32)
+      asm.mov(:rax, cfp_ep_ptr) # ep = cfp->ep
+      local0_offset = -insn[:idx] * 8
       asm.mov(:rax, X86.qword_ptr(:rax, local0_offset))
       asm.push(:rax)
     end
