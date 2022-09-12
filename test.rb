@@ -7,5 +7,5 @@ def double(n)
 end
 
 10.times do
-  p double(123)
+  p double(80)
 end
