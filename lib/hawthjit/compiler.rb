@@ -149,12 +149,75 @@ module HawthJit
 
     CantCompile = Class.new(StandardError)
 
+    # Callee-saved registers
+    # We make the same choices as YJIT
+    SP = X86::REGISTERS[:rbx]
+    CFP = X86::REGISTERS[:r13]
+    EC = X86::REGISTERS[:r12]
+
+    CFP_SIZE = 0x40
+
+    class AsmStruct
+      def self.define(offsets)
+        Class.new(AsmStruct) do
+          define_method(:offsets) do
+            offsets
+          end
+        end
+      end
+
+      def initialize(reg)
+        @reg = reg
+      end
+
+      def [](field)
+        X86.qword_ptr(@reg, offsets.fetch(field))
+      end
+    end
+
+    CFPStruct = AsmStruct.define(
+      pc: 0,
+      sp: 1 * 8,
+      iseq: 2 * 8,
+      self: 3 * 8,
+      ep: 4 * 8,
+      block_code: 5 * 8,
+      bp: 6 * 8,
+      jit_return: 7 * 8,
+    )
+
+    def CFP.[](field)
+      CFPStruct.new(self)[field]
+    end
+
+    ECStruct = AsmStruct.define(
+      cfp: 0x10
+    )
+
+    def EC.[](field)
+      ECStruct.new(self)[field]
+    end
+
     def compile_entry
+      # Save callee-saved regs
+      asm.push(SP)
+      asm.push(CFP)
+      asm.push(EC)
+
+      asm.mov(CFP, :rsi)
+      asm.mov(EC, :rdi)
+      asm.mov(SP, CFP[:sp])
+    end
+
+    def compile_exit
+      asm.pop(EC)
+      asm.pop(CFP)
+      asm.pop(SP)
+      asm.ret
     end
 
     def compile_getlocal_WC_0(insn)
-      cfp_reg = :rsi
-      cfp_ep_ptr = X86.qword_ptr(cfp_reg, 32)
+      cfp_ep_ptr = CFP[:ep]
       asm.mov(:rax, cfp_ep_ptr) # ep = cfp->ep
       local0_offset = -insn[:idx] * 8
       asm.mov(:rax, X86.qword_ptr(:rax, local0_offset))
@@ -162,15 +225,16 @@ module HawthJit
     end
 
     def compile_putself(insn)
+      asm.mov(:rax, CFP[:self])
+      push_stack(:rax)
     end
 
     def compile_leave(insn)
-      ec_reg = :rdi
-      ec_cfp_ptr = X86.qword_ptr(ec_reg, 0x10)
-      asm.add(ec_cfp_ptr, 0x40)
+      ec_cfp_ptr = EC[:cfp]
+      asm.add(ec_cfp_ptr, CFP_SIZE)
 
       pop_stack(:rax)
-      asm.ret
+      compile_exit
     end
 
     def compile_putobject(insn)
