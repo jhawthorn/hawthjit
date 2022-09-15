@@ -61,7 +61,7 @@ module HawthJit
         case type
         when "VALUE"
           Fiddle.dlunwrap(value).inspect
-        when "lindex_t"
+        when "lindex_t", "offset"
           value
         when "CALL_DATA"
           cd = C.CALL_DATA.new(value)
@@ -75,14 +75,19 @@ module HawthJit
     end
 
     class Insn
-      attr_reader :insn, :operands
-      def initialize(insn, operands)
+      attr_reader :insn, :operands, :pos
+      def initialize(insn, operands, pos)
         @insn = insn
         @operands = operands
+        @pos = pos
       end
 
       def name
         insn.name
+      end
+
+      def len
+        insn.len
       end
 
       def [](name)
@@ -127,11 +132,19 @@ module HawthJit
             body.iseq_encoded[pos + i + 1]
           )
         end
-        insns << Insn.new(insn, operands)
+        insns << Insn.new(insn, operands, pos)
         pos += insn.len
       end
 
       @insns = insns
+    end
+
+    def labels
+      return @labels if @labels
+
+      @labels = insns.map do |insn|
+        [insn.pos, @asm.new_label]
+      end.to_h
     end
 
     CantCompile = Class.new(StandardError)
@@ -145,7 +158,10 @@ module HawthJit
       asm.mov(:rax, cfp_ep_ptr) # ep = cfp->ep
       local0_offset = -insn[:idx] * 8
       asm.mov(:rax, X86.qword_ptr(:rax, local0_offset))
-      asm.push(:rax)
+      push_stack(:rax)
+    end
+
+    def compile_putself(insn)
     end
 
     def compile_leave(insn)
@@ -153,36 +169,100 @@ module HawthJit
       ec_cfp_ptr = X86.qword_ptr(ec_reg, 0x10)
       asm.add(ec_cfp_ptr, 0x40)
 
-      asm.pop(:rax)
+      pop_stack(:rax)
       asm.ret
     end
 
     def compile_putobject(insn)
       value = insn.operands[0].value
-      asm.push(value)
+      push_stack(value)
+    end
+
+    def compile_putobject_INT2FIX_1_(insn)
+      push_stack(Fiddle.dlwrap(1))
+    end
+
+    Qtrue = Fiddle.dlwrap(true)
+    Qfalse = Fiddle.dlwrap(false)
+    Qnil = Fiddle.dlwrap(nil)
+
+    def compile_opt_lt(insn)
+      pop_stack(:rcx)
+      pop_stack(:rax)
+      asm.cmp(:rax, :rcx)
+      asm.mov(:rax, Qfalse)
+      asm.mov(:rcx, Qtrue)
+      asm.cmovl(:rax, :rcx)
+      push_stack(:rax)
+    end
+
+    def compile_branchunless(insn)
+      pop_stack(:rax)
+      asm.cmp(:rax, Qnil)
+
+      target_label = labels.fetch(insn.pos + insn.len + insn[:dst])
+      asm.jle(target_label)
+    end
+
+    def push_stack(opnd)
+      # For now use the machine stack
+      asm.push(opnd)
+    end
+
+    def pop_stack(opnd)
+      # For now use the machine stack
+      asm.pop(opnd)
+    end
+
+    def compile_opt_minus(insn)
+      pop_stack(:rcx)
+      pop_stack(:rax)
+
+      asm.sub(:rax, :rcx)
+      asm.or(:rax, 1)
+
+      push_stack(:rax)
+    end
+
+    def compile_opt_plus(insn)
+      pop_stack(:rcx)
+      pop_stack(:rax)
+
+      asm.sub(:rcx, 1)
+      asm.add(:rax, :rcx)
+
+      push_stack(:rax)
+    end
+
+    def compile_opt_send_without_block(insn)
+      @asm.int(3)
     end
 
     def compile_opt_mult(insn)
       # FIXME: Assumes fixnum * fixnum
-      asm.pop(:rax)
-      asm.pop(:rcx)
+      pop_stack(:rax)
+      pop_stack(:rcx)
 
       asm.shr(:rax, 1)
       asm.sub(:rcx, 1)
       asm.imul(:rax, :rcx)
       asm.or(:rax, 1)
 
-      asm.push(:rax)
+      push_stack(:rax)
     end
 
     def compile_insn(insn)
       visitor_method = :"compile_#{insn.name}"
       raise CantCompile unless respond_to?(visitor_method)
+
+      label = labels.fetch(insn.pos)
+      @asm.bind(label)
+
       send(visitor_method, insn)
     end
 
     ALLOWLIST = %w[
-      double fib
+      double fib test
     ]
 
     def compile
