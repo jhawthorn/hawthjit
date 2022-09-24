@@ -97,8 +97,12 @@ module HawthJit
       end
 
       def inspect
+        "#<#{self.class} #{to_s}>"
+      end
+
+      def to_s
         segments = [name, *operands.map(&:insn_inspect)]
-        "#<#{self.class} #{segments.join(" ")}>"
+        segments.join(" ")
       end
     end
 
@@ -116,6 +120,8 @@ module HawthJit
     def initialize(iseq)
       @iseq = iseq
       @code = AsmJIT::CodeHolder.new
+      @disasm = +""
+      @code.logger = @disasm
       @asm = X86::Assembler.new(@code)
     end
 
@@ -324,6 +330,8 @@ module HawthJit
       visitor_method = :"compile_#{insn.name}"
       raise CantCompile unless respond_to?(visitor_method)
 
+      @disasm << "# #{insn.to_s}\n"
+
       label = labels.fetch(insn.pos)
       @asm.bind(label)
 
@@ -349,6 +357,10 @@ module HawthJit
           puts "failed to compile #{insn.inspect}"
           return nil
         end
+
+        puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
+        puts @disasm
+        puts "==="
 
         @code.to_ptr
       end
