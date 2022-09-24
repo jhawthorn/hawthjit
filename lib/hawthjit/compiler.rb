@@ -116,13 +116,14 @@ module HawthJit
     end
 
     X86 = AsmJIT::X86
-    attr_reader :asm
+    attr_reader :asm, :ctx
     def initialize(iseq)
       @iseq = iseq
       @code = AsmJIT::CodeHolder.new
       @disasm = +""
       @code.logger = @disasm
       @asm = X86::Assembler.new(@code)
+      @ctx = Context.new
     end
 
     def insns
@@ -279,14 +280,66 @@ module HawthJit
       asm.jle(target_label)
     end
 
+    class Context
+      StackReg = Struct.new(:reg)
+      StackConst = Struct.new(:value)
+
+      GENERAL_REGS = [:rsi, :rdi, :r8, :r9]
+
+      def initialize
+        @stack = []
+        @scratch_regs = []
+        @available_regs = GENERAL_REGS.dup
+      end
+
+      def pop
+        item = @stack.pop or raise "stack is empty #{inspect}"
+        case item
+        when StackReg
+          @scratch_regs << item.reg
+          item.reg
+        when StackConst
+          item.value
+        else
+          raise "bad stack opnd type: #{item}"
+        end
+      end
+
+      def new_scratch
+        reg = @available_regs.pop or raise "no regs available #{inspect}"
+        @scratch_regs << @available_regs
+        reg
+      end
+
+      def push_into
+        reg = new_scratch
+        push(reg)
+        reg
+      end
+
+      def push(reg)
+        @stack << StackReg.new(reg)
+        nil
+      end
+
+      def push_value(value)
+        @stack << StackConst.new(value)
+        nil
+      end
+
+      def release_scratch
+        used_stack_regs = @stack.grep(StackReg).map(&:reg)
+        available_regs |= (@scratch_regs - used_stack_regs) & GENERAL_REGS
+        @scratch_regs.clear
+      end
+    end
+
     def push_stack(opnd)
-      # For now use the machine stack
-      asm.push(opnd)
+      asm.mov(ctx.push_into, opnd)
     end
 
     def pop_stack(opnd)
-      # For now use the machine stack
-      asm.pop(opnd)
+      asm.mov(opnd, ctx.pop)
     end
 
     def compile_opt_minus(insn)
@@ -336,6 +389,8 @@ module HawthJit
       @asm.bind(label)
 
       send(visitor_method, insn)
+
+      @ctx.release_scratch
     end
 
     ALLOWLIST = %w[
