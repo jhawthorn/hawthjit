@@ -20,3 +20,5 @@ module HawthJit
 end
 
 require "hawthjit/compiler"
+require "hawthjit/ir"
+require "hawthjit/x86_assembler"

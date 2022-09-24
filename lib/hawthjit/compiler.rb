@@ -1,3 +1,5 @@
+require "hawthjit/ir"
+
 module HawthJit
   class Compiler
     class Operand
@@ -119,11 +121,8 @@ module HawthJit
     attr_reader :asm, :ctx
     def initialize(iseq)
       @iseq = iseq
-      @code = AsmJIT::CodeHolder.new
-      @disasm = +""
-      @code.logger = @disasm
-      @asm = X86::Assembler.new(@code)
       @ctx = Context.new
+      @asm = IR::Assembler.new
     end
 
     def insns
@@ -146,13 +145,13 @@ module HawthJit
       @insns = insns
     end
 
-    def labels
-      return @labels if @labels
+    #def labels
+    #  return @labels if @labels
 
-      @labels = insns.map do |insn|
-        [insn.pos, @asm.new_label]
-      end.to_h
-    end
+    #  @labels = insns.map do |insn|
+    #    [insn.pos, @asm.new_label]
+    #  end.to_h
+    #end
 
     CantCompile = Class.new(StandardError)
 
@@ -272,13 +271,13 @@ module HawthJit
       push_stack(:rax)
     end
 
-    def compile_branchunless(insn)
-      pop_stack(:rax)
-      asm.cmp(:rax, Qnil)
+    #def compile_branchunless(insn)
+    #  pop_stack(:rax)
+    #  asm.cmp(:rax, Qnil)
 
-      target_label = labels.fetch(insn.pos + insn.len + insn[:dst])
-      asm.jle(target_label)
-    end
+    #  target_label = labels.fetch(insn.pos + insn.len + insn[:dst])
+    #  asm.jle(target_label)
+    #end
 
     class Context
       StackReg = Struct.new(:reg)
@@ -383,10 +382,10 @@ module HawthJit
       visitor_method = :"compile_#{insn.name}"
       raise CantCompile unless respond_to?(visitor_method)
 
-      @disasm << "# #{insn.to_s}\n"
+      asm.comment "# #{insn.to_s}\n"
 
-      label = labels.fetch(insn.pos)
-      @asm.bind(label)
+      #label = labels.fetch(insn.pos)
+      #@asm.bind(label)
 
       send(visitor_method, insn)
 
@@ -413,11 +412,13 @@ module HawthJit
           return nil
         end
 
+        code = @asm.to_x86
+
         puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
-        puts @disasm
+        puts code.logger
         puts "==="
 
-        @code.to_ptr
+        code.to_ptr
       end
     end
   end
