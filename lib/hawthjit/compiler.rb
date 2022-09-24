@@ -210,21 +210,11 @@ module HawthJit
     decorate_reg(EC, ECStruct)
 
     def compile_entry
-      # Save callee-saved regs
-      asm.push(SP)
-      asm.push(CFP)
-      asm.push(EC)
-
-      asm.mov(CFP, :rsi)
-      asm.mov(EC, :rdi)
-      asm.mov(SP, CFP[:sp])
+      asm.jit_prelude
     end
 
     def compile_exit
-      asm.pop(EC)
-      asm.pop(CFP)
-      asm.pop(SP)
-      asm.ret
+      asm.jit_suffix
     end
 
     def compile_getlocal_WC_0(insn)
