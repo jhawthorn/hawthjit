@@ -157,14 +157,27 @@ module HawthJit
 
     CFP_SIZE = C.rb_control_frame_t.sizeof
 
+    CPointer = RubyVM::MJIT.const_get(:CPointer)
+
     class AsmStruct
+      Member = Struct.new(:offset, :bytesize)
       def self.from_mjit(struct)
-        members = struct.new.instance_variable_get(:@members)
-        offsets = members.transform_values { |x| x[1] / 8 }
-        Class.new(AsmStruct) do
-          define_method(:offsets) do
-            offsets
+        members = struct.new(0).instance_variable_get(:@members)
+        members = members.transform_values do |type, offset|
+          if Class === type && CPointer::Pointer > type
+            type = type.new(0).type
           end
+          size =
+            if Class === type && CPointer::Struct > type
+              # pointer size
+              8
+            else
+              type.size
+            end
+          Member.new(offset / 8, size)
+        end
+        Class.new(AsmStruct) do
+          define_method(:members) { members }
         end
       end
 
@@ -173,7 +186,8 @@ module HawthJit
       end
 
       def [](field)
-        X86.qword_ptr(@reg, offsets.fetch(field))
+        member = members.fetch(field)
+        X86.ptr(@reg, member.offset, member.bytesize)
       end
     end
 
