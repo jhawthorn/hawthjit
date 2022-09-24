@@ -155,10 +155,12 @@ module HawthJit
     CFP = X86::REGISTERS[:r13]
     EC = X86::REGISTERS[:r12]
 
-    CFP_SIZE = 0x40
+    CFP_SIZE = C.rb_control_frame_t.sizeof
 
     class AsmStruct
-      def self.define(offsets)
+      def self.from_mjit(struct)
+        members = struct.new.instance_variable_get(:@members)
+        offsets = members.transform_values { |x| x[1] / 8 }
         Class.new(AsmStruct) do
           define_method(:offsets) do
             offsets
@@ -175,28 +177,17 @@ module HawthJit
       end
     end
 
-    CFPStruct = AsmStruct.define(
-      pc: 0,
-      sp: 1 * 8,
-      iseq: 2 * 8,
-      self: 3 * 8,
-      ep: 4 * 8,
-      block_code: 5 * 8,
-      bp: 6 * 8,
-      jit_return: 7 * 8,
-    )
-
-    def CFP.[](field)
-      CFPStruct.new(self)[field]
+    def self.decorate_reg(reg, struct)
+      reg.singleton_class.define_method(:[]) do |field|
+        struct.new(self)[field]
+      end
     end
 
-    ECStruct = AsmStruct.define(
-      cfp: 0x10
-    )
+    CFPStruct = AsmStruct.from_mjit C.rb_control_frame_t
+    decorate_reg(CFP, CFPStruct)
 
-    def EC.[](field)
-      ECStruct.new(self)[field]
-    end
+    ECStruct = AsmStruct.from_mjit C.rb_execution_context_t
+    decorate_reg(EC, ECStruct)
 
     def compile_entry
       # Save callee-saved regs
