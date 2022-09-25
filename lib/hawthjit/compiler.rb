@@ -339,15 +339,16 @@ module HawthJit
 
     def compile_opt_mult(insn)
       # FIXME: Assumes fixnum * fixnum
-      pop_stack(:rax)
-      pop_stack(:rcx)
+      a, b = ctx.popn(2)
 
-      asm.shr(:rax, 1)
-      asm.sub(:rcx, 1)
-      asm.imul(:rax, :rcx)
-      asm.or(:rax, 1)
+      result =
+        asm.or(
+          asm.imul(
+            asm.shr(a, 1),
+            asm.sub(b, 1)),
+        1)
 
-      push_stack(:rax)
+      ctx.push(result)
     end
 
     def compile_insn(insn)
