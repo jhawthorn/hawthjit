@@ -295,6 +295,12 @@ module HawthJit
         @stack.pop
       end
 
+      def popn(n)
+        n.times.map do
+          pop
+        end.reverse
+      end
+
       def release_scratch
       end
     end
@@ -318,13 +324,13 @@ module HawthJit
     end
 
     def compile_opt_plus(insn)
-      pop_stack(:rcx)
-      pop_stack(:rax)
+      # FIXME: assumes fixnum + fixnum
 
-      asm.sub(:rcx, 1)
-      asm.add(:rax, :rcx)
+      a, b = ctx.popn(2)
 
-      push_stack(:rax)
+      result = asm.add(a, asm.sub(b, 1))
+
+      ctx.push(result)
     end
 
     def compile_opt_send_without_block(insn)

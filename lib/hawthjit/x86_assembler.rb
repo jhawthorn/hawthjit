@@ -89,6 +89,12 @@ module HawthJit
       asm.add(out, input(insn, 1))
     end
 
+    def ir_sub(insn)
+      out = out(insn)
+      asm.mov(out, input(insn, 0))
+      asm.sub(out, input(insn, 1))
+    end
+
     def ir_update_cfp(insn)
       asm.mov(CFP, input(insn))
       ec_cfp_ptr = EC[:cfp]
