@@ -3,7 +3,7 @@ require "hawthjit"
 HawthJit.enable
 
 def double(n)
-  n * 2
+  n
 end
 
 10.times do

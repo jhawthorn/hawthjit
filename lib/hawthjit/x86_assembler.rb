@@ -8,32 +8,99 @@ module HawthJit
     CFP = X86::REGISTERS[:r13]
     EC = X86::REGISTERS[:r12]
 
+    GP_REGS = [:rax, :rcx, :rsi, :rdi, :r8, :r9]
+
     attr_reader :asm
-    def initialize
+    def initialize(ir)
       @code = AsmJIT::CodeHolder.new
       @disasm = +""
       @code.logger = @disasm
       @asm = X86::Assembler.new(@code)
+
+      @ir = ir
     end
 
-    def compile(ir)
-      ir.each do |op, *operands|
-        if respond_to?("ir_#{op}")
-          send("ir_#{op}", *operands)
-        else
-          # by default, just emit
-          @asm.emit(op.to_s, *operands)
+    def allocate_regs!
+      lifetimes = {}
+
+      @ir.insns.each_with_index.reverse_each do |insn, idx|
+        insn.inputs.grep(IR::OutOpnd).each do |out|
+          lifetimes[out] ||= idx
         end
+
+        # Never used, allocate a register for scratch anyways ¯\_(ツ)_/¯
+        lifetimes[insn.output] ||= idx
+      end
+
+      available = GP_REGS.dup
+      live = []
+      @regs = {}
+
+      #p lifetimes
+
+      @ir.insns.each_with_index do |insn, idx|
+        out = insn.output
+        @regs[out] = available.shift or raise "out of regs"
+        live << out
+
+        live.reject! do |opnd|
+          if lifetimes[opnd] <= idx
+            available.unshift(@regs[opnd])
+            true
+          else
+            false
+          end
+        end
+      end
+
+      #p @regs
+    end
+
+    def compile
+      allocate_regs!
+
+      @ir.insns.each do |insn|
+        op = insn.opcode
+        @disasm << "# #{insn}\n" unless op == :comment
+        send("ir_#{op}", insn)
       end
 
       @code
     end
 
-    def ir_comment(comment)
-      @disasm << comment
+    def ir_comment(insn)
+      @disasm << "# #{insn.inputs[0]}\n"
     end
 
-    def ir_jit_prelude
+    def ir_cfp(insn)
+      asm.mov out(insn), CFP
+    end
+
+    def ir_load(insn)
+      offset = insn.inputs[1] || 0
+      size = insn.inputs[2] || 8
+      mem = X86.ptr(input(insn), offset, size)
+      asm.mov out(insn), mem
+    end
+
+    def ir_add(insn)
+      out = out(insn)
+      asm.mov(out, input(insn, 0))
+      asm.add(out, input(insn, 1))
+    end
+
+    def ir_update_cfp(insn)
+      asm.mov(CFP, input(insn))
+      ec_cfp_ptr = EC[:cfp]
+      asm.mov(ec_cfp_ptr, CFP)
+    end
+
+    def ir_ret(insn)
+      asm.mov :rax, input(insn)
+      asm.ret
+    end
+
+    def ir_jit_prelude(insn)
       # Save callee-saved regs
       asm.push(SP)
       asm.push(CFP)
@@ -44,11 +111,24 @@ module HawthJit
       asm.mov(SP, CFP[:sp])
     end
 
-    def ir_jit_suffix
+    def ir_jit_suffix(insn)
       asm.pop(EC)
       asm.pop(CFP)
       asm.pop(SP)
-      asm.ret
+    end
+
+    def out(insn)
+      @regs.fetch(insn.output)
+    end
+
+    def input(insn, index=0)
+      x = insn.inputs[index]
+      case x
+      when IR::OutOpnd
+        @regs.fetch(x)
+      else
+        x
+      end
     end
   end
 end

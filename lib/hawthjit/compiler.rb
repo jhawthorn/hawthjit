@@ -183,12 +183,22 @@ module HawthJit
           Member.new(offset / 8, size)
         end
         Class.new(AsmStruct) do
+          define_singleton_method(:members) { members }
           define_method(:members) { members }
+          define_singleton_method(:sizeof) { struct.sizeof }
         end
       end
 
       def initialize(reg)
         @reg = reg
+      end
+
+      def self.member(name)
+        members.fetch(name)
+      end
+
+      def self.offset(name)
+        member(name).offset
       end
 
       def [](field)
@@ -214,15 +224,18 @@ module HawthJit
     end
 
     def compile_exit
-      asm.jit_suffix
     end
 
     def compile_getlocal_WC_0(insn)
-      cfp_ep_ptr = CFP[:ep]
-      asm.mov(:rax, cfp_ep_ptr) # ep = cfp->ep
+      # ep = cfp->ep
+      cfp = asm.cfp
+      ep = asm.load(cfp, CFPStruct.offset(:ep), 8)
+
       local0_offset = -insn[:idx] * 8
-      asm.mov(:rax, X86.qword_ptr(:rax, local0_offset))
-      push_stack(:rax)
+
+      val = asm.load(ep, local0_offset)
+
+      push_stack(val)
     end
 
     def compile_putself(insn)
@@ -231,11 +244,10 @@ module HawthJit
     end
 
     def compile_leave(insn)
-      ec_cfp_ptr = EC[:cfp]
-      asm.add(ec_cfp_ptr, CFP_SIZE)
+      asm.update_cfp asm.add(asm.cfp, CFPStruct.sizeof)
 
-      pop_stack(:rax)
-      compile_exit
+      asm.jit_suffix
+      asm.ret pop_stack
     end
 
     def compile_putobject(insn)
@@ -270,65 +282,29 @@ module HawthJit
     #end
 
     class Context
-      StackReg = Struct.new(:reg)
-      StackConst = Struct.new(:value)
-
-      GENERAL_REGS = [:rsi, :rdi, :r8, :r9]
-
       def initialize
         @stack = []
-        @scratch_regs = []
-        @available_regs = GENERAL_REGS.dup
+      end
+
+      def push(val)
+        @stack << val
+        nil
       end
 
       def pop
-        item = @stack.pop or raise "stack is empty #{inspect}"
-        case item
-        when StackReg
-          @scratch_regs << item.reg
-          item.reg
-        when StackConst
-          item.value
-        else
-          raise "bad stack opnd type: #{item}"
-        end
-      end
-
-      def new_scratch
-        reg = @available_regs.pop or raise "no regs available #{inspect}"
-        @scratch_regs << @available_regs
-        reg
-      end
-
-      def push_into
-        reg = new_scratch
-        push(reg)
-        reg
-      end
-
-      def push(reg)
-        @stack << StackReg.new(reg)
-        nil
-      end
-
-      def push_value(value)
-        @stack << StackConst.new(value)
-        nil
+        @stack.pop
       end
 
       def release_scratch
-        used_stack_regs = @stack.grep(StackReg).map(&:reg)
-        available_regs |= (@scratch_regs - used_stack_regs) & GENERAL_REGS
-        @scratch_regs.clear
       end
     end
 
     def push_stack(opnd)
-      asm.mov(ctx.push_into, opnd)
+      ctx.push(opnd)
     end
 
-    def pop_stack(opnd)
-      asm.mov(opnd, ctx.pop)
+    def pop_stack
+      ctx.pop
     end
 
     def compile_opt_minus(insn)
@@ -372,7 +348,7 @@ module HawthJit
       visitor_method = :"compile_#{insn.name}"
       raise CantCompile unless respond_to?(visitor_method)
 
-      asm.comment "# #{insn.to_s}\n"
+      asm.comment "YARV: #{insn}"
 
       #label = labels.fetch(insn.pos)
       #@asm.bind(label)
