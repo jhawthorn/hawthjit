@@ -72,9 +72,10 @@ module HawthJit
       @code
     end
 
-    def ir_comment(insn)
+    def comment(insn)
       @disasm << "# #{insn.inputs[0]}\n"
     end
+    alias ir_comment comment
 
     def ir_cfp(insn)
       asm.mov out(insn), CFP
@@ -107,6 +108,16 @@ module HawthJit
       asm.mov(CFP, input(insn))
       ec_cfp_ptr = EC[:cfp]
       asm.mov(ec_cfp_ptr, CFP)
+    end
+
+    def ir_update_pc(insn)
+      # FIXME: use a scratch reg if available
+      scratch = SP
+      asm.mov(scratch, input(insn))
+      asm.mov(CFP[:pc], scratch)
+
+      # Restore SP
+      asm.mov(SP, CFP[:sp])
     end
 
     def ir_jit_prelude(insn)

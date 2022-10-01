@@ -73,6 +73,8 @@ module HawthJit
 
     define :cfp, 0 => 1
     define :update_cfp, 1 => 0
+    define :update_pc, 1 => 0
+    define :update_sp, 1 => 0
 
     define :load, :any => 1
 

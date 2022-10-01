@@ -77,11 +77,16 @@ module HawthJit
     end
 
     class Insn
-      attr_reader :insn, :operands, :pos
-      def initialize(insn, operands, pos)
+      attr_reader :insn, :operands, :pos, :pc
+      def initialize(insn, operands, pos, pc)
         @insn = insn
         @operands = operands
         @pos = pos
+        @pc = pc
+      end
+
+      def next_pc
+        @pc + operands.size * 8
       end
 
       def name
@@ -138,7 +143,8 @@ module HawthJit
             body.iseq_encoded[pos + i + 1]
           )
         end
-        insns << Insn.new(insn, operands, pos)
+        pc = body.iseq_encoded.to_i + pos
+        insns << Insn.new(insn, operands, pos, pc)
         pos += insn.len
       end
 
@@ -343,6 +349,9 @@ module HawthJit
     end
 
     def compile_opt_mult(insn)
+      asm.update_pc insn.pc
+      #asm.update_sp insn.sp
+
       # FIXME: Assumes fixnum * fixnum
       a, b = ctx.popn(2)
 
