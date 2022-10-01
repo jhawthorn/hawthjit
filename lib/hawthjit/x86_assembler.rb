@@ -72,13 +72,31 @@ module HawthJit
         send("ir_#{op}", insn)
       end
 
+      side_exit_label
+
+      if @side_exit_label
+        asm.bind(side_exit_label)
+        comment "side exit"
+
+        jit_suffix
+        asm.mov :rax, Qundef
+        asm.ret
+      end
+
       @code
     end
 
-    def comment(insn)
-      @disasm << "# #{insn.inputs[0]}\n"
+    def side_exit_label
+      @side_exit_label ||= asm.new_label
     end
-    alias ir_comment comment
+
+    def comment(text)
+      @disasm << "# #{text}\n"
+    end
+
+    def ir_comment(insn)
+      comment insn.inputs[0]
+    end
 
     def ir_cfp(insn)
       asm.mov out(insn), CFP
@@ -113,6 +131,10 @@ module HawthJit
       asm.mov(ec_cfp_ptr, CFP)
     end
 
+    def ir_breakpoint(insn)
+      asm.int3
+    end
+
     def ir_update_pc(insn)
       # FIXME: use a scratch reg if available
       scratch = BP
@@ -125,7 +147,6 @@ module HawthJit
 
     def ir_update_sp(insn)
       # FIXME: use a scratch reg if available
-      set_bp_from_cfp
       scratch = BP
       relative_sp = input(insn)
       asm.add(BP, relative_sp * 8)
@@ -149,11 +170,14 @@ module HawthJit
       asm.mov out(insn), mem
     end
 
-    def ir_side_exit(insn)
-      jit_suffix
+    def ir_guard_fixnum(insn)
+      reg = input(insn)
+      asm.test reg, 1
+      asm.jz side_exit_label
+    end
 
-      asm.mov :rax, Qundef
-      asm.ret
+    def ir_side_exit(insn)
+      asm.jmp side_exit_label
     end
 
     def set_bp_from_cfp

@@ -145,7 +145,7 @@ module HawthJit
             body.iseq_encoded[pos + i + 1]
           )
         end
-        pc = body.iseq_encoded.to_i + pos
+        pc = body.iseq_encoded.to_i + pos * 8
         insns << Insn.new(insn, operands, pos, pc, relative_sp)
         relative_sp += (insn.rets.size) + (insn.pops.size)
         pos += insn.len
@@ -313,11 +313,16 @@ module HawthJit
     end
 
     def compile_opt_plus(insn)
-      # FIXME: assumes fixnum + fixnum
+      asm.update_pc insn.pc
+      asm.update_sp insn.relative_sp
 
       a = pop_stack
       b = pop_stack
 
+      asm.guard_fixnum(a)
+      asm.guard_fixnum(b)
+
+      # FIXME: handle overflow
       result = asm.add(a, asm.sub(b, 1))
 
       push_stack(result)
