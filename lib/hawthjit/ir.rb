@@ -64,7 +64,6 @@ module HawthJit
       end
 
       const_set(name.to_s.upcase, klass)
-      p klass
       DEFINITIONS[name.to_s] = klass
     end
 
@@ -99,7 +98,7 @@ module HawthJit
       end
 
       def method_missing(name, *inputs)
-        klass = DEFINITIONS[name.to_s]
+        klass = DEFINITIONS.fetch(name.to_s)
 
         num_inputs = klass.inputs
         num_outputs = klass.outputs
