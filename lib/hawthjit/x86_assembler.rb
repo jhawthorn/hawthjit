@@ -29,7 +29,9 @@ module HawthJit
         end
 
         # Never used, allocate a register for scratch anyways ¯\_(ツ)_/¯
-        lifetimes[insn.output] ||= idx
+        insn.outputs.each do |output|
+          lifetimes[output] ||= idx
+        end
       end
 
       available = GP_REGS.dup
@@ -39,9 +41,11 @@ module HawthJit
       #p lifetimes
 
       @ir.insns.each_with_index do |insn, idx|
-        out = insn.output
-        @regs[out] = available.shift or raise "out of regs"
-        live << out
+        outs = insn.outputs
+        outs.each do |out|
+          @regs[out] = available.shift or raise "out of regs"
+          live << out
+        end
 
         live.reject! do |opnd|
           if lifetimes[opnd] <= idx
