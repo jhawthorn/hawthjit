@@ -164,21 +164,27 @@ module HawthJit
     CFP_SIZE = C.rb_control_frame_t.sizeof
 
     CPointer = RubyVM::MJIT.const_get(:CPointer)
+    CType = RubyVM::MJIT.const_get(:CType)
 
     class AsmStruct
       Member = Struct.new(:offset, :bytesize)
       def self.from_mjit(struct)
         members = struct.new(0).instance_variable_get(:@members)
         members = members.transform_values do |type, offset|
-          if Class === type && CPointer::Pointer > type
-            type = type.new(0).type
-          end
           size =
-            if Class === type && CPointer::Struct > type
-              # pointer size
-              8
-            else
+            case type
+            when CType::Stub
               type.size
+            when Class
+              if CPointer::Pointer > type
+                8
+              elsif CPointer::Struct > type
+                type.sizeof
+              elsif CPointer::Immediate > type
+                type.size
+              else
+                raise "FIXME: unsupported type: #{type}"
+              end
             end
           Member.new(offset / 8, size)
         end
