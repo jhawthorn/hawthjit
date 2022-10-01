@@ -86,6 +86,9 @@ module HawthJit
     define :and, 2 => 1
     define :shr, 2 => 1
 
+    define :vm_push, 1 => 0
+    define :vm_pop, 0 => 1
+
     class Assembler
       attr_reader :insns
 

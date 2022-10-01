@@ -292,35 +292,14 @@ module HawthJit
     #end
 
     class Context
-      def initialize
-        @stack = []
-      end
-
-      def push(val)
-        @stack << val
-        nil
-      end
-
-      def pop
-        @stack.pop
-      end
-
-      def popn(n)
-        n.times.map do
-          pop
-        end.reverse
-      end
-
-      def release_scratch
-      end
     end
 
     def push_stack(opnd)
-      ctx.push(opnd)
+      asm.vm_push(opnd)
     end
 
     def pop_stack
-      ctx.pop
+      asm.vm_pop
     end
 
     def compile_opt_minus(insn)
@@ -336,11 +315,12 @@ module HawthJit
     def compile_opt_plus(insn)
       # FIXME: assumes fixnum + fixnum
 
-      a, b = ctx.popn(2)
+      a = pop_stack
+      b = pop_stack
 
       result = asm.add(a, asm.sub(b, 1))
 
-      ctx.push(result)
+      push_stack(result)
     end
 
     def compile_opt_send_without_block(insn)
@@ -349,7 +329,8 @@ module HawthJit
 
     def compile_opt_mult(insn)
       # FIXME: Assumes fixnum * fixnum
-      a, b = ctx.popn(2)
+      a = pop_stack
+      b = pop_stack
 
       result =
         asm.or(
@@ -358,7 +339,7 @@ module HawthJit
             asm.sub(b, 1)),
         1)
 
-      ctx.push(result)
+      push_stack result
     end
 
     def compile_insn(insn)
@@ -371,8 +352,6 @@ module HawthJit
       #@asm.bind(label)
 
       send(visitor_method, insn)
-
-      @ctx.release_scratch
     end
 
     ALLOWLIST = %w[

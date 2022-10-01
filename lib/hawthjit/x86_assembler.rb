@@ -63,8 +63,11 @@ module HawthJit
     def compile
       allocate_regs!
 
+      @sp = 0
+
       @ir.insns.each do |insn|
         op = insn.opcode
+        p op
         @disasm << "# #{insn}\n" unless op == :comment
         send("ir_#{op}", insn)
       end
@@ -132,6 +135,20 @@ module HawthJit
       set_bp_from_cfp
     end
 
+    def ir_vm_push(insn)
+      mem = X86.ptr(BP, @sp * 8, 8)
+      @sp += 1
+
+      asm.mov mem, input(insn)
+    end
+
+    def ir_vm_pop(insn)
+      @sp -= 1
+      mem = X86.ptr(BP, @sp * 8, 8)
+
+      asm.mov out(insn), mem
+    end
+
     def ir_side_exit(insn)
       jit_suffix
 
@@ -140,7 +157,7 @@ module HawthJit
     end
 
     def set_bp_from_cfp
-      asm.mov(BP, CFP[:sp])
+      asm.mov(BP, CFP[:__bp__])
     end
 
     def ir_jit_prelude(insn)
