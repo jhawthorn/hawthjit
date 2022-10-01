@@ -4,7 +4,7 @@ module HawthJit
 
     # Callee-saved registers
     # We make the same choices as YJIT
-    SP = X86::REGISTERS[:rbx]
+    BP = X86::REGISTERS[:rbx]
     CFP = X86::REGISTERS[:r13]
     EC = X86::REGISTERS[:r12]
 
@@ -112,29 +112,33 @@ module HawthJit
 
     def ir_update_pc(insn)
       # FIXME: use a scratch reg if available
-      scratch = SP
+      scratch = BP
       asm.mov(scratch, input(insn))
       asm.mov(CFP[:pc], scratch)
 
-      # Restore SP
-      asm.mov(SP, CFP[:sp])
+      # Restore BP
+      set_bp_from_cfp
+    end
+
+    def set_bp_from_cfp
+      asm.mov(BP, CFP[:sp])
     end
 
     def ir_jit_prelude(insn)
       # Save callee-saved regs
-      asm.push(SP)
+      asm.push(BP)
       asm.push(CFP)
       asm.push(EC)
 
       asm.mov(CFP, :rsi)
       asm.mov(EC, :rdi)
-      asm.mov(SP, CFP[:sp])
+      set_bp_from_cfp
     end
 
     def ir_jit_return(insn)
       asm.pop(EC)
       asm.pop(CFP)
-      asm.pop(SP)
+      asm.pop(BP)
 
       asm.mov :rax, input(insn)
       asm.ret
