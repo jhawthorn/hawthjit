@@ -252,8 +252,7 @@ module HawthJit
     def compile_leave(insn)
       asm.update_cfp asm.add(asm.cfp, CFPStruct.sizeof)
 
-      asm.jit_suffix
-      asm.ret pop_stack
+      asm.jit_return pop_stack
     end
 
     def compile_putobject(insn)

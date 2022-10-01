@@ -109,11 +109,6 @@ module HawthJit
       asm.mov(ec_cfp_ptr, CFP)
     end
 
-    def ir_ret(insn)
-      asm.mov :rax, input(insn)
-      asm.ret
-    end
-
     def ir_jit_prelude(insn)
       # Save callee-saved regs
       asm.push(SP)
@@ -125,10 +120,13 @@ module HawthJit
       asm.mov(SP, CFP[:sp])
     end
 
-    def ir_jit_suffix(insn)
+    def ir_jit_return(insn)
       asm.pop(EC)
       asm.pop(CFP)
       asm.pop(SP)
+
+      asm.mov :rax, input(insn)
+      asm.ret
     end
 
     def out(insn)

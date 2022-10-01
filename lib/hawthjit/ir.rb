@@ -69,8 +69,7 @@ module HawthJit
 
     define :comment, 1 => 0
     define :jit_prelude
-    define :jit_suffix
-    define :ret, 1 => 0
+    define :jit_return, 1 => 0
 
     define :cfp, 0 => 1
     define :update_cfp, 1 => 0
