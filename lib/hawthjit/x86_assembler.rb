@@ -120,6 +120,25 @@ module HawthJit
       set_bp_from_cfp
     end
 
+    def ir_update_sp(insn)
+      # FIXME: use a scratch reg if available
+      set_bp_from_cfp
+      scratch = BP
+      relative_sp = input(insn)
+      asm.add(BP, relative_sp * 8)
+      asm.mov(CFP[:sp], BP)
+
+      # Restore BP
+      set_bp_from_cfp
+    end
+
+    def ir_side_exit(insn)
+      jit_suffix
+
+      asm.mov :rax, Qundef
+      asm.ret
+    end
+
     def set_bp_from_cfp
       asm.mov(BP, CFP[:sp])
     end
@@ -135,10 +154,14 @@ module HawthJit
       set_bp_from_cfp
     end
 
-    def ir_jit_return(insn)
+    def jit_suffix
       asm.pop(EC)
       asm.pop(CFP)
       asm.pop(BP)
+    end
+
+    def ir_jit_return(insn)
+      jit_suffix
 
       asm.mov :rax, input(insn)
       asm.ret

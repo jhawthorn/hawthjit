@@ -77,12 +77,13 @@ module HawthJit
     end
 
     class Insn
-      attr_reader :insn, :operands, :pos, :pc
-      def initialize(insn, operands, pos, pc)
+      attr_reader :insn, :operands, :pos, :pc, :relative_sp
+      def initialize(insn, operands, pos, pc, relative_sp)
         @insn = insn
         @operands = operands
         @pos = pos
         @pc = pc
+        @relative_sp = relative_sp
       end
 
       def next_pc
@@ -135,6 +136,7 @@ module HawthJit
 
       insns = []
       pos = 0
+      relative_sp = 0
       while pos < body.iseq_size
         insn = INSNS.fetch(C.rb_vm_insn_decode(body.iseq_encoded[pos]))
         operands = insn.opes.map.with_index do |type, i|
@@ -144,7 +146,8 @@ module HawthJit
           )
         end
         pc = body.iseq_encoded.to_i + pos
-        insns << Insn.new(insn, operands, pos, pc)
+        insns << Insn.new(insn, operands, pos, pc, relative_sp)
+        relative_sp += (insn.rets.size) + (insn.pops.size)
         pos += insn.len
       end
 
@@ -270,10 +273,6 @@ module HawthJit
       push_stack(Fiddle.dlwrap(1))
     end
 
-    Qtrue = Fiddle.dlwrap(true)
-    Qfalse = Fiddle.dlwrap(false)
-    Qnil = Fiddle.dlwrap(nil)
-
     def compile_opt_lt(insn)
       pop_stack(:rcx)
       pop_stack(:rax)
@@ -349,9 +348,6 @@ module HawthJit
     end
 
     def compile_opt_mult(insn)
-      asm.update_pc insn.pc
-      #asm.update_sp insn.sp
-
       # FIXME: Assumes fixnum * fixnum
       a, b = ctx.popn(2)
 

@@ -4,6 +4,13 @@ require "asmjit"
 module HawthJit
   C = RubyVM::MJIT.const_get(:C)
 
+  Qtrue = Fiddle.dlwrap(true)
+  Qfalse = Fiddle.dlwrap(false)
+  Qnil = Fiddle.dlwrap(nil)
+
+  # FIXME: Is there a non-hardcoded way to get this?
+  Qundef = 0x34
+
   def self.compile(iseq_ptr)
     Compiler.new(iseq_ptr).compile
   end
