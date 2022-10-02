@@ -154,13 +154,13 @@ module HawthJit
       @insns = insns
     end
 
-    #def labels
-    #  return @labels if @labels
+    def labels
+      return @labels if @labels
 
-    #  @labels = insns.map do |insn|
-    #    [insn.pos, @asm.new_label]
-    #  end.to_h
-    #end
+      @labels = insns.map do |insn|
+        [insn.pos, @asm.label("pos_#{insn.pos}")]
+      end.to_h
+    end
 
     CantCompile = Class.new(StandardError)
 
@@ -274,22 +274,27 @@ module HawthJit
     end
 
     def compile_opt_lt(insn)
-      pop_stack(:rcx)
-      pop_stack(:rax)
-      asm.cmp(:rax, :rcx)
-      asm.mov(:rax, Qfalse)
-      asm.mov(:rcx, Qtrue)
-      asm.cmovl(:rax, :rcx)
-      push_stack(:rax)
+      b = pop_stack
+      a = pop_stack
+
+      asm.guard_fixnum b
+      asm.guard_fixnum a
+
+      cond = asm.cmp_s(a, :<, b)
+      val = asm.rbool(cond)
+
+      push_stack val
     end
 
-    #def compile_branchunless(insn)
-    #  pop_stack(:rax)
-    #  asm.cmp(:rax, Qnil)
+    def compile_branchunless(insn)
+      val = pop_stack
+      cond = asm.rtest(val)
 
-    #  target_label = labels.fetch(insn.pos + insn.len + insn[:dst])
-    #  asm.jle(target_label)
-    #end
+      target_insn = labels.fetch(insn.pos + insn.len + insn[:dst])
+      next_insn   = labels.fetch(insn.pos + insn.len)
+
+      asm.br_cond cond, target_insn, next_insn
+    end
 
     class Context
     end
@@ -313,9 +318,6 @@ module HawthJit
     #end
 
     def compile_opt_plus(insn)
-      asm.update_pc insn.pc
-      asm.update_sp insn.relative_sp
-
       a = pop_stack
       b = pop_stack
 
@@ -355,6 +357,9 @@ module HawthJit
 
       #label = labels.fetch(insn.pos)
       #@asm.bind(label)
+
+      asm.update_pc insn.pc
+      asm.update_sp insn.relative_sp
 
       send(visitor_method, insn)
     end

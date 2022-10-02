@@ -8,7 +8,8 @@ module HawthJit
     CFP = X86::REGISTERS[:r13]
     EC = X86::REGISTERS[:r12]
 
-    GP_REGS = [:rax, :rcx, :rsi, :rdi, :r8, :r9]
+    SCRATCH_REGS = [:rax, :rcx]
+    GP_REGS = [:rdx, :rsi, :rdi, :r8, :r9, :r10, :r11]
 
     attr_reader :asm
     def initialize(ir)
@@ -145,6 +146,58 @@ module HawthJit
       asm.int3
     end
 
+    def condition_code(signedness, op)
+      if signedness == :unsigned
+        raise "not implemented: #{op.inspect}"
+      elsif signedness == :signed
+        case op
+        when :<  then "l"  # less than
+        when :<= then "le" # less than or equal
+        when :>  then "g"  # greater than
+        when :>= then "ge" # greater than or equal
+        else
+          raise "not implemented: #{cond.inspect}"
+        end
+      else
+        raise ArgumentError, "bad signedness: #{signedness.inspect}"
+      end
+    end
+
+    def ir_cmp_s(insn)
+      a, op, b = inputs(insn)
+
+      asm.xor(:rax, :rax)
+      asm.cmp(a, b)
+      asm.emit("set#{condition_code(:signed, op)}", :al)
+      asm.mov(out(insn), :rax)
+    end
+
+    def ir_cmp_u(insn)
+      comment "fixme"
+      asm.int3
+    end
+
+    def ir_br_cond(insn)
+      comment "fixme"
+      asm.int3
+    end
+
+    def ir_rbool(insn)
+      val = input(insn)
+      output = out(insn)
+      scratch = :rax
+
+      asm.test(val, val)
+      asm.mov(output, Qfalse)
+      asm.mov(scratch, Qtrue)
+      asm.cmovne(output, scratch)
+    end
+
+    def ir_br_cond(insn)
+      comment "fixme"
+      asm.int3
+    end
+
     def ir_update_pc(insn)
       # FIXME: use a scratch reg if available
       scratch = BP
@@ -220,6 +273,12 @@ module HawthJit
 
     def out(insn)
       @regs.fetch(insn.output)
+    end
+
+    def inputs(insn)
+      insn.inputs.size.times.map do |i|
+        input(insn, i)
+      end
     end
 
     def input(insn, index=0)

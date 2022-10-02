@@ -1,5 +1,7 @@
 module HawthJit
   module IR
+    Label = Struct.new(:name, :number)
+
     class Instruction
       attr_reader :outputs, :opcode, :inputs
       def initialize(outputs, opcode, inputs)
@@ -72,6 +74,15 @@ module HawthJit
     define :jit_return, 1 => 0
     define :side_exit
     define :breakpoint
+    define :bind
+    define :br, 1
+    define :br_cond, 3
+
+    define :rbool, 1 => 1
+    define :rtest, 1 => 1
+
+    define :cmp_s, 3 => 1
+    define :cmp_u, 3 => 1
 
     define :guard_fixnum, 1
 
@@ -97,11 +108,18 @@ module HawthJit
     define :vm_pop, 0 => 1
 
     class Assembler
-      attr_reader :insns
+      attr_reader :insns, :labels
 
       def initialize
         @insns = []
+        @labels = []
         @last_output = 0
+      end
+
+      def label(name = nil)
+        number = @labels.size
+        name ||= "L#{number}"
+        @labels << Label.new(name, number)
       end
 
       def build_output
