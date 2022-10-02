@@ -293,7 +293,7 @@ module HawthJit
       target_insn = labels.fetch(insn.pos + insn.len + insn[:dst])
       next_insn   = labels.fetch(insn.pos + insn.len)
 
-      asm.br_cond cond, target_insn, next_insn
+      asm.br_cond cond, next_insn, target_insn
     end
 
     class Context
@@ -355,8 +355,8 @@ module HawthJit
 
       asm.comment "YARV: #{insn}"
 
-      #label = labels.fetch(insn.pos)
-      #@asm.bind(label)
+      label = labels.fetch(insn.pos)
+      @asm.bind(label)
 
       asm.update_pc insn.pc
       asm.update_sp insn.relative_sp

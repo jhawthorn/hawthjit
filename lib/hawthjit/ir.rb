@@ -1,6 +1,10 @@
 module HawthJit
   module IR
-    Label = Struct.new(:name, :number)
+    Label = Struct.new(:name, :number) do
+      def inspect
+        "label:#{name}"
+      end
+    end
 
     class Instruction
       attr_reader :outputs, :opcode, :inputs
@@ -74,7 +78,7 @@ module HawthJit
     define :jit_return, 1 => 0
     define :side_exit
     define :breakpoint
-    define :bind
+    define :bind, 1
     define :br, 1
     define :br_cond, 3
 
@@ -119,7 +123,9 @@ module HawthJit
       def label(name = nil)
         number = @labels.size
         name ||= "L#{number}"
-        @labels << Label.new(name, number)
+        label = Label.new(name, number)
+        @labels << label
+        label
       end
 
       def build_output

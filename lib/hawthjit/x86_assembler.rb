@@ -61,6 +61,13 @@ module HawthJit
       #p @regs
     end
 
+    def x86_labels
+      @x86_labels ||=
+        Hash.new do |h, k|
+          h[k] = asm.new_label
+        end
+    end
+
     def compile
       allocate_regs!
 
@@ -177,9 +184,14 @@ module HawthJit
       asm.int3
     end
 
-    def ir_br_cond(insn)
-      comment "fixme"
-      asm.int3
+    def ir_rtest(insn)
+      val = input(insn)
+      output = out(insn)
+
+      asm.xor(:rax, :rax)
+      asm.test(val, ~Qnil)
+      asm.setnz(:al)
+      asm.mov(output, :rax)
     end
 
     def ir_rbool(insn)
@@ -193,9 +205,20 @@ module HawthJit
       asm.cmovne(output, scratch)
     end
 
+    def ir_bind(insn)
+      label = input(insn)
+      asm.bind x86_labels[label]
+    end
+
     def ir_br_cond(insn)
-      comment "fixme"
-      asm.int3
+      cond, label_if, label_else = inputs(insn)
+
+      label_if = x86_labels[label_if]
+      label_else = x86_labels[label_else]
+
+      asm.test cond, cond
+      asm.jnz label_if
+      asm.jmp label_else
     end
 
     def ir_update_pc(insn)
