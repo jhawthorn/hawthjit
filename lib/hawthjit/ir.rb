@@ -83,8 +83,11 @@ module HawthJit
     define :load, :any => 1
 
     define :add, 2 => 1
+    define :add_guard_overflow, 2 => 1
     define :sub, 2 => 1
+    define :sub_guard_overflow, 2 => 1
     define :imul, 2 => 1
+    define :imul_guard_overflow, 2 => 1
     define :or, 2 => 1
     define :and, 2 => 1
     define :shr, 2 => 1

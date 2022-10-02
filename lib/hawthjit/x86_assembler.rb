@@ -125,6 +125,15 @@ module HawthJit
       end
     end
 
+    %w[add sub imul].each do |name|
+      define_method(:"ir_#{name}_guard_overflow") do |insn|
+        out = out(insn)
+        asm.mov(out, input(insn, 0))
+        asm.emit(name.to_s, out, input(insn, 1))
+        asm.jo side_exit_label
+      end
+    end
+
     def ir_update_cfp(insn)
       asm.mov(CFP, input(insn))
       ec_cfp_ptr = EC[:cfp]

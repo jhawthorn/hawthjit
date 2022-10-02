@@ -322,8 +322,7 @@ module HawthJit
       asm.guard_fixnum(a)
       asm.guard_fixnum(b)
 
-      # FIXME: handle overflow
-      result = asm.add(a, asm.sub(b, 1))
+      result = asm.add_guard_overflow(a, asm.sub(b, 1))
 
       push_stack(result)
     end
