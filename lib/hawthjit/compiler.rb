@@ -3,11 +3,11 @@ require "hawthjit/ir"
 module HawthJit
   class Compiler
     class Operand
-      attr_reader :value
+      attr_reader :raw_value
 
-      def initialize(decl, value)
+      def initialize(decl, raw_value)
         @decl = decl
-        @value = value
+        @raw_value = raw_value
       end
 
       def name
@@ -16,6 +16,18 @@ module HawthJit
 
       def type
         @decl[:type]
+      end
+
+      def value
+        case type
+        when "CALL_DATA"
+          cd = C.CALL_DATA.new(raw_value)
+          ci = CallInfo.new cd.ci
+          cc = CallCache.new cd.cc
+          [ci, cc]
+        else
+          raw_value
+        end
       end
 
       def insn_inspect
@@ -46,6 +58,8 @@ module HawthJit
       end
 
       class CallCache
+        attr_reader :cc
+
         def initialize(cc)
           @cc = cc
         end
@@ -66,10 +80,7 @@ module HawthJit
         when "lindex_t", "offset"
           value
         when "CALL_DATA"
-          cd = C.CALL_DATA.new(value)
-          ci = CallInfo.new cd.ci
-          cc = CallCache.new cd.cc
-          [ci, cc].inspect
+          value.inspect
         else
           "(#{type})#{value}"
         end
@@ -147,7 +158,7 @@ module HawthJit
         end
         pc = body.iseq_encoded.to_i + pos * 8
         insns << Insn.new(insn, operands, pos, pc, relative_sp)
-        relative_sp += (insn.rets.size) + (insn.pops.size)
+        relative_sp += (insn.rets.size) - (insn.pops.size)
         pos += insn.len
       end
 
@@ -254,8 +265,9 @@ module HawthJit
     end
 
     def compile_putself(insn)
-      asm.mov(:rax, CFP[:self])
-      push_stack(:rax)
+      cfp = asm.cfp
+      self_ = asm.load(cfp, CFPStruct.offset(:self), 8)
+      push_stack self_
     end
 
     def compile_leave(insn)
@@ -329,8 +341,20 @@ module HawthJit
       push_stack(result)
     end
 
-    #def compile_opt_send_without_block(insn)
-    #end
+    def compile_opt_send_without_block(insn)
+      ci, cc = insn[:cd]
+
+      # FIXME: check that ci is "simple"
+
+      # FIXME: guard for cc.klass
+
+      cme = cc.cc.cme_
+      # FIXME: check that cme.def.type is ISEQ
+
+      iseq = cme.def.body.iseq.iseqptr
+
+      asm.side_exit
+    end
 
     def compile_opt_mult(insn)
       a = pop_stack
