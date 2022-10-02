@@ -150,6 +150,7 @@ module HawthJit
       relative_sp = 0
       while pos < body.iseq_size
         insn = INSNS.fetch(C.rb_vm_insn_decode(body.iseq_encoded[pos]))
+        sp_inc = C.mjit_call_attribute_sp_inc(insn.bin, body.iseq_encoded + pos + 1)
         operands = insn.opes.map.with_index do |type, i|
           Operand.new(
             type,
@@ -158,7 +159,7 @@ module HawthJit
         end
         pc = body.iseq_encoded.to_i + pos * 8
         insns << Insn.new(insn, operands, pos, pc, relative_sp)
-        relative_sp += (insn.rets.size) - (insn.pops.size)
+        relative_sp += sp_inc
         pos += insn.len
       end
 
@@ -344,6 +345,11 @@ module HawthJit
     def compile_opt_send_without_block(insn)
       ci, cc = insn[:cd]
 
+      asm.side_exit
+
+      asm.vm_pop
+      asm.vm_pop
+
       # FIXME: check that ci is "simple"
 
       # FIXME: guard for cc.klass
@@ -353,7 +359,7 @@ module HawthJit
 
       iseq = cme.def.body.iseq.iseqptr
 
-      asm.side_exit
+      asm.vm_push(Qnil)
     end
 
     def compile_opt_mult(insn)
@@ -389,7 +395,7 @@ module HawthJit
     end
 
     ALLOWLIST = %w[
-      double fib test
+      double fib test foo
     ]
 
     def compile

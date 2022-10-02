@@ -75,7 +75,7 @@ module HawthJit
 
       @ir.insns.each do |insn|
         op = insn.opcode
-        p op
+        p insn
         @disasm << "# #{insn}\n" unless op == :comment
         send("ir_#{op}", insn)
       end
@@ -222,38 +222,36 @@ module HawthJit
     end
 
     def ir_update_pc(insn)
-      # FIXME: use a scratch reg if available
-      scratch = BP
+      scratch = :rax
       asm.mov(scratch, input(insn))
       asm.mov(CFP[:pc], scratch)
-
-      # Restore BP
-      set_bp_from_cfp
     end
 
     def ir_update_sp(insn)
       # FIXME: use a scratch reg if available
-      scratch = BP
-      relative_sp = input(insn)
-      asm.add(BP, relative_sp * 8)
-      asm.mov(CFP[:sp], BP)
+      scratch = :rax
 
-      # Restore BP
-      set_bp_from_cfp
+      input_sp = input(insn)
+      raise "bad sp #{input_sp} != #{@sp}" unless input(insn) == @sp
+
+      asm.lea(scratch, sp_ptr)
+      asm.mov(CFP[:sp], scratch)
+    end
+
+    def sp_ptr()
+      X86.ptr(BP, @sp * 8, 8)
     end
 
     def ir_vm_push(insn)
-      mem = X86.ptr(BP, @sp * 8, 8)
+      asm.mov sp_ptr, input(insn)
       @sp += 1
-
-      asm.mov mem, input(insn)
+      puts "sp = #{@sp}"
     end
 
     def ir_vm_pop(insn)
       @sp -= 1
-      mem = X86.ptr(BP, @sp * 8, 8)
-
-      asm.mov out(insn), mem
+      asm.mov out(insn), sp_ptr
+      puts "sp = #{@sp}"
     end
 
     def ir_guard_fixnum(insn)
