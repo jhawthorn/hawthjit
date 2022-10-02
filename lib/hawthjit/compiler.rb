@@ -302,15 +302,15 @@ module HawthJit
       asm.vm_pop
     end
 
-    def compile_opt_minus(insn)
-      pop_stack(:rcx)
-      pop_stack(:rax)
+    #def compile_opt_minus(insn)
+    #  pop_stack(:rcx)
+    #  pop_stack(:rax)
 
-      asm.sub(:rax, :rcx)
-      asm.or(:rax, 1)
+    #  asm.sub(:rax, :rcx)
+    #  asm.or(:rax, 1)
 
-      push_stack(:rax)
-    end
+    #  push_stack(:rax)
+    #end
 
     def compile_opt_plus(insn)
       asm.update_pc insn.pc
@@ -327,18 +327,19 @@ module HawthJit
       push_stack(result)
     end
 
-    def compile_opt_send_without_block(insn)
-      @asm.int(3)
-    end
+    #def compile_opt_send_without_block(insn)
+    #end
 
     def compile_opt_mult(insn)
-      # FIXME: Assumes fixnum * fixnum
       a = pop_stack
       b = pop_stack
 
+      asm.guard_fixnum(a)
+      asm.guard_fixnum(b)
+
       result =
         asm.or(
-          asm.imul(
+          asm.imul_guard_overflow(
             asm.shr(a, 1),
             asm.sub(b, 1)),
         1)
