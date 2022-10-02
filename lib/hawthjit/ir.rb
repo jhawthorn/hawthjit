@@ -90,6 +90,7 @@ module HawthJit
     define :imul_guard_overflow, 2 => 1
     define :or, 2 => 1
     define :and, 2 => 1
+    define :xor, 2 => 1
     define :shr, 2 => 1
 
     define :vm_push, 1 => 0

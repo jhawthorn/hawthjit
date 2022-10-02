@@ -114,7 +114,8 @@ module HawthJit
       sub
       shr
       imul
-      or
+
+      or xor and
     ]
 
     BIN_OPS.each do |name|
