@@ -4,6 +4,9 @@ require "asmjit"
 module HawthJit
   C = RubyVM::MJIT.const_get(:C)
 
+  CPointer = RubyVM::MJIT.const_get(:CPointer)
+  CType = RubyVM::MJIT.const_get(:CType)
+
   Qtrue = Fiddle.dlwrap(true)
   Qfalse = Fiddle.dlwrap(false)
   Qnil = Fiddle.dlwrap(nil)
@@ -26,6 +29,7 @@ module HawthJit
   end
 end
 
+require "hawthjit/asm_struct"
 require "hawthjit/compiler"
 require "hawthjit/ir"
 require "hawthjit/x86_assembler"

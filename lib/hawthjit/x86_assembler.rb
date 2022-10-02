@@ -149,6 +149,37 @@ module HawthJit
       asm.mov(ec_cfp_ptr, CFP)
     end
 
+    def ir_push_frame(insn)
+      iseq, flags, self_, specval, cref_or_me, pc = inputs(insn)
+
+      next_cfp = -> (member) do
+        offset = CFPStruct.offset(member) - CFPStruct.sizeof
+        X86.qword_ptr(CFP, offset)
+      end
+
+      asm.mov(:rax, cref_or_me)
+      asm.mov(sp_ptr(0), :rax)
+      block_handler = 0
+      asm.mov(sp_ptr(1), block_handler)
+      asm.mov(sp_ptr(2), flags)
+
+      asm.mov(:rax, pc)
+      asm.mov(next_cfp[:pc], :rax)
+      asm.mov(:rax, iseq)
+      asm.mov(next_cfp[:iseq], :rax)
+      asm.mov(next_cfp[:block_code], 0)
+      asm.mov(next_cfp[:jit_return], 0)
+
+      asm.lea(:rax, sp_ptr(3))
+      asm.mov(next_cfp[:sp], :rax)
+      asm.mov(next_cfp[:__bp__], :rax)
+      asm.sub(:rax, 8)
+      asm.mov(next_cfp[:ep], :rax)
+
+      asm.lea(:rax, X86.qword_ptr(CFP, -CFPStruct.sizeof))
+      asm.mov(EC[:cfp], :rax)
+    end
+
     def ir_breakpoint(insn)
       asm.int3
     end
@@ -228,18 +259,17 @@ module HawthJit
     end
 
     def ir_update_sp(insn)
-      # FIXME: use a scratch reg if available
       scratch = :rax
 
       input_sp = input(insn)
-      raise "bad sp #{input_sp} != #{@sp}" unless input(insn) == @sp
+      #raise "bad sp #{input_sp} != #{@sp}" unless input(insn) == @sp
 
       asm.lea(scratch, sp_ptr)
       asm.mov(CFP[:sp], scratch)
     end
 
-    def sp_ptr()
-      X86.ptr(BP, @sp * 8, 8)
+    def sp_ptr(offset = 0)
+      X86.ptr(BP, (@sp + offset) * 8, 8)
     end
 
     def ir_vm_push(insn)

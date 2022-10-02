@@ -98,7 +98,7 @@ module HawthJit
       end
 
       def next_pc
-        @pc + operands.size * 8
+        @pc + len * 8
       end
 
       def name
@@ -134,7 +134,6 @@ module HawthJit
       iseq.body
     end
 
-    X86 = AsmJIT::X86
     attr_reader :asm, :ctx
     def initialize(iseq)
       @iseq = iseq
@@ -175,76 +174,6 @@ module HawthJit
     end
 
     CantCompile = Class.new(StandardError)
-
-    # Callee-saved registers
-    # We make the same choices as YJIT
-    SP = X86::REGISTERS[:rbx]
-    CFP = X86::REGISTERS[:r13]
-    EC = X86::REGISTERS[:r12]
-
-    CFP_SIZE = C.rb_control_frame_t.sizeof
-
-    CPointer = RubyVM::MJIT.const_get(:CPointer)
-    CType = RubyVM::MJIT.const_get(:CType)
-
-    class AsmStruct
-      Member = Struct.new(:offset, :bytesize)
-      def self.from_mjit(struct)
-        members = struct.new(0).instance_variable_get(:@members)
-        members = members.transform_values do |type, offset|
-          size =
-            case type
-            when CType::Stub
-              type.size
-            when Class
-              if CPointer::Pointer > type
-                8
-              elsif CPointer::Struct > type
-                type.sizeof
-              elsif CPointer::Immediate > type
-                type.size
-              else
-                raise "FIXME: unsupported type: #{type}"
-              end
-            end
-          Member.new(offset / 8, size)
-        end
-        Class.new(AsmStruct) do
-          define_singleton_method(:members) { members }
-          define_method(:members) { members }
-          define_singleton_method(:sizeof) { struct.sizeof }
-        end
-      end
-
-      def initialize(reg)
-        @reg = reg
-      end
-
-      def self.member(name)
-        members.fetch(name)
-      end
-
-      def self.offset(name)
-        member(name).offset
-      end
-
-      def [](field)
-        member = members.fetch(field)
-        X86.ptr(@reg, member.offset, member.bytesize)
-      end
-    end
-
-    def self.decorate_reg(reg, struct)
-      reg.singleton_class.define_method(:[]) do |field|
-        struct.new(self)[field]
-      end
-    end
-
-    CFPStruct = AsmStruct.from_mjit C.rb_control_frame_t
-    decorate_reg(CFP, CFPStruct)
-
-    ECStruct = AsmStruct.from_mjit C.rb_execution_context_t
-    decorate_reg(EC, ECStruct)
 
     def compile_entry
       asm.jit_prelude
@@ -342,24 +271,56 @@ module HawthJit
       push_stack(result)
     end
 
+    # From vm_core.h
+    VM_FRAME_MAGIC_METHOD = 0x11110001
+    VM_ENV_FLAG_LOCAL     = 0x0002
+
     def compile_opt_send_without_block(insn)
       ci, cc = insn[:cd]
-
-      asm.side_exit
-
-      asm.vm_pop
-      asm.vm_pop
 
       # FIXME: check that ci is "simple"
 
       # FIXME: guard for cc.klass
 
       cme = cc.cc.cme_
-      # FIXME: check that cme.def.type is ISEQ
+
+      if cme.def.type != C.VM_METHOD_TYPE_ISEQ
+        raise CantCompile
+      end
 
       iseq = cme.def.body.iseq.iseqptr
 
+      callee_pc = iseq.body.iseq_encoded.to_i
+
+      self_ = asm.load(asm.cfp, CFPStruct.offset(:self), 8)
+
+      push_frame(
+        flags: VM_FRAME_MAGIC_METHOD | VM_ENV_FLAG_LOCAL,
+        iseq: iseq.to_i,
+        self_: self_,
+        specval: 0,
+        cref_or_me: cme.to_i,
+        pc: callee_pc,
+      )
+
+      # pop arguments in the callee frame
+      asm.vm_pop
+      asm.vm_pop
+
+      asm.update_pc insn.next_pc
+      asm.update_sp 99999 # FIXME
+
+      asm.side_exit
+
+
       asm.vm_push(Qnil)
+
+      #jit_ptr = Compiler.new(iseq).compile!
+
+    end
+
+    def push_frame iseq:, flags:, self_:, specval:, cref_or_me:, pc:
+      asm.push_frame(iseq, flags, self_, specval, cref_or_me, pc)
     end
 
     def compile_opt_mult(insn)
@@ -422,6 +383,13 @@ module HawthJit
 
         code.to_ptr
       end
+    end
+
+    # Compile and set jit_func
+    def compile!
+      ptr = compile
+      iseq.body.jit_func = ptr
+      ptr
     end
   end
 end
