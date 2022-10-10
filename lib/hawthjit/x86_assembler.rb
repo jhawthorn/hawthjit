@@ -10,6 +10,8 @@ module HawthJit
 
     SCRATCH_REGS = [:rax, :rcx]
     GP_REGS = [:rdx, :rsi, :rdi, :r8, :r9, :r10, :r11]
+    C_ARG_REGS = %i[rdi rsi rdx rcx r8 r9]
+    CALLER_SAVE = %i[rax rcx rdx rdi rsi rsp r8 r9 r10 r11]
 
     attr_reader :asm
     def initialize(ir)
@@ -178,6 +180,28 @@ module HawthJit
 
       asm.lea(:rax, X86.qword_ptr(CFP, -CFPStruct.sizeof))
       asm.mov(EC[:cfp], :rax)
+    end
+
+    def ir_call_jit_func(insn)
+      ptr = input(insn)
+      raise "call to null pointer" if ptr == 0
+
+      GP_REGS.each do |reg|
+        asm.push(reg)
+      end
+
+      callee_cfp = X86.qword_ptr(CFP, -CFPStruct.sizeof)
+      asm.lea(:rsi, callee_cfp)
+      asm.mov(:rdi, EC)
+
+      asm.call(ptr)
+      GP_REGS.reverse_each do |reg|
+        asm.pop(reg)
+      end
+
+      # FIXME: side exit if Qnil
+
+      asm.mov(out(insn), :rax)
     end
 
     def ir_breakpoint(insn)

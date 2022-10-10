@@ -303,20 +303,33 @@ module HawthJit
         pc: callee_pc,
       )
 
-      # pop arguments in the callee frame
-      asm.vm_pop
-      asm.vm_pop
+      if iseq.body.jit_func == 0
+        # Side exit _into_ the next control frame
 
-      asm.update_pc insn.next_pc
-      asm.update_sp 99999 # FIXME
+        ci.argc.times do
+          asm.vm_pop
+        end
+        asm.vm_pop
 
-      asm.side_exit
+        asm.update_pc insn.next_pc
+        asm.update_sp 99999 # FIXME
+        asm.side_exit
 
+        asm.vm_push(Qnil)
+        return :stop
+      else
+        # Call the previously compiled JIT func
 
-      asm.vm_push(Qnil)
+        ret = asm.call_jit_func(iseq.body.jit_func)
 
-      #jit_ptr = Compiler.new(iseq).compile!
+        # pop arguments in the caller framt
+        ci.argc.times do
+          asm.vm_pop
+        end
+        asm.vm_pop # self
 
+        asm.vm_push(ret)
+      end
     end
 
     def push_frame iseq:, flags:, self_:, specval:, cref_or_me:, pc:
@@ -369,7 +382,8 @@ module HawthJit
 
         compile_entry
         insns.each do |insn|
-          compile_insn(insn)
+          ret = compile_insn(insn)
+          break if :stop == ret
         rescue CantCompile
           puts "failed to compile #{insn.inspect}"
           return nil

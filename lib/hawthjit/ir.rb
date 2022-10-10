@@ -95,6 +95,7 @@ module HawthJit
     define :update_cfp, 1 => 0
     define :update_pc, 1 => 0
     define :update_sp, 1 => 0
+    define :call_jit_func, 1 => 1
 
     define :load, :any => 1
 
