@@ -136,7 +136,11 @@ module HawthJit
       end
     end
 
-    %w[add sub imul].each do |name|
+    {
+      add: :jo,
+      sub: :jc,
+      imul: :jo # FIXME: probably wrong
+    }.each do |name, jump|
       define_method(:"ir_#{name}_guard_overflow") do |insn|
         out = out(insn)
         asm.mov(out, input(insn, 0))
@@ -182,8 +186,17 @@ module HawthJit
       asm.mov(EC[:cfp], :rax)
     end
 
+    def cast(opnd)
+      case opnd
+      when IR::Label
+        x86_labels[opnd]
+      else
+        opnd
+      end
+    end
+
     def ir_call_jit_func(insn)
-      ptr = input(insn)
+      ptr = cast(input(insn))
       raise "call to null pointer" if ptr == 0
 
       GP_REGS.each do |reg|

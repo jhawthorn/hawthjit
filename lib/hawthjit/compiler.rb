@@ -176,6 +176,8 @@ module HawthJit
     CantCompile = Class.new(StandardError)
 
     def compile_entry
+      @entry_label = asm.label("entry")
+      asm.bind(@entry_label)
       asm.jit_prelude
     end
 
@@ -249,19 +251,22 @@ module HawthJit
       asm.vm_pop
     end
 
-    #def compile_opt_minus(insn)
-    #  pop_stack(:rcx)
-    #  pop_stack(:rax)
+    def compile_opt_minus(insn)
+      b = pop_stack
+      a = pop_stack
 
-    #  asm.sub(:rax, :rcx)
-    #  asm.or(:rax, 1)
+      asm.guard_fixnum(a)
+      asm.guard_fixnum(b)
 
-    #  push_stack(:rax)
-    #end
+      result = asm.sub_guard_overflow(a, b)
+      result = asm.add(result, 1) # re-add tag
+
+      push_stack(result)
+    end
 
     def compile_opt_plus(insn)
-      a = pop_stack
       b = pop_stack
+      a = pop_stack
 
       asm.guard_fixnum(a)
       asm.guard_fixnum(b)
@@ -303,7 +308,14 @@ module HawthJit
         pc: callee_pc,
       )
 
-      if iseq.body.jit_func == 0
+      jit_func = iseq.body.jit_func
+
+      if @iseq.to_i == iseq.to_i
+        # self recursive
+        jit_func = @entry_label
+      end
+
+      if jit_func == 0
         # Side exit _into_ the next control frame
 
         ci.argc.times do
@@ -319,8 +331,7 @@ module HawthJit
         return :stop
       else
         # Call the previously compiled JIT func
-
-        ret = asm.call_jit_func(iseq.body.jit_func)
+        ret = asm.call_jit_func(jit_func)
 
         # pop arguments in the caller framt
         ci.argc.times do
