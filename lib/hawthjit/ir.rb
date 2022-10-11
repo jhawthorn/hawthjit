@@ -66,6 +66,7 @@ module HawthJit
 
       klass = Class.new(Instruction) do
         define_singleton_method(:name) { name }
+        define_method(:name) { name }
         define_singleton_method(:inputs) { inputs }
         define_singleton_method(:outputs) { outputs }
       end
@@ -74,6 +75,7 @@ module HawthJit
       DEFINITIONS[name.to_s] = klass
     end
 
+    define :nop
     define :comment, 1 => 0
     define :jit_prelude
     define :jit_return, 1 => 0
@@ -114,13 +116,19 @@ module HawthJit
     define :vm_push, 1 => 0
     define :vm_pop, 0 => 1
 
-    attr_reader :insns, :labels
+    attr_accessor :insns, :labels, :last_output
     alias instructions insns
 
     def initialize
       @insns = []
       @labels = []
       @last_output = 0
+    end
+
+    def initialize_copy(other)
+      @insns = other.insns.dup
+      @labels = other.labels.dup
+      @last_output = other.last_output
     end
 
     def label(name = nil)
@@ -136,7 +144,7 @@ module HawthJit
       OutOpnd.new(@last_output)
     end
 
-    def emit(name, *inputs)
+    def build(name, *inputs)
       klass = DEFINITIONS.fetch(name.to_s)
 
       num_inputs = klass.inputs
@@ -149,9 +157,14 @@ module HawthJit
       raise ArgumentError, "expected #{num_inputs} inputs for #{name}, got #{inputs.size}" unless num_inputs == inputs.size
 
       outputs = num_outputs.times.map { build_output }
-      insn = klass.new(outputs, name, inputs)
+      klass.new(outputs, name, inputs)
+    end
+
+    def emit(name, *inputs)
+      insn = build(name, *inputs)
       @insns << insn
 
+      outputs = insn.outputs
       case outputs.size
       when 0
         nil

@@ -384,6 +384,10 @@ module HawthJit
       double fib test foo
     ]
 
+    def apply_passes(ir)
+      Pass.apply_all(ir)
+    end
+
     def compile
       label = iseq.body.location.label
       pp iseq.body.location
@@ -401,7 +405,9 @@ module HawthJit
           return nil
         end
 
-        code = @asm.to_x86
+        ir = apply_passes(@ir)
+
+        code = ir.to_x86
 
         puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
         puts code.logger
