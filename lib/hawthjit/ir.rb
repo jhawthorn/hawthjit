@@ -1,5 +1,5 @@
 module HawthJit
-  module IR
+  class IR
     Label = Struct.new(:name, :number) do
       def inspect
         "label:#{name}"
@@ -7,11 +7,12 @@ module HawthJit
     end
 
     class Instruction
-      attr_reader :outputs, :opcode, :inputs
+      attr_reader :outputs, :opcode, :inputs, :props
       def initialize(outputs, opcode, inputs)
         @outputs = outputs
         @opcode = opcode
         @inputs = inputs
+        @props = {}
       end
 
       def output
@@ -113,57 +114,74 @@ module HawthJit
     define :vm_push, 1 => 0
     define :vm_pop, 0 => 1
 
+    attr_reader :insns, :labels
+    alias instructions insns
+
+    def initialize
+      @insns = []
+      @labels = []
+      @last_output = 0
+    end
+
+    def label(name = nil)
+      number = @labels.size
+      name ||= "L#{number}"
+      label = Label.new(name, number)
+      @labels << label
+      label
+    end
+
+    def build_output
+      @last_output += 1
+      OutOpnd.new(@last_output)
+    end
+
+    def emit(name, *inputs)
+      klass = DEFINITIONS.fetch(name.to_s)
+
+      num_inputs = klass.inputs
+      num_outputs = klass.outputs
+
+      if num_inputs == :any
+        num_inputs = inputs.size
+      end
+
+      raise ArgumentError, "expected #{num_inputs} inputs for #{name}, got #{inputs.size}" unless num_inputs == inputs.size
+
+      outputs = num_outputs.times.map { build_output }
+      insn = klass.new(outputs, name, inputs)
+      @insns << insn
+
+      case outputs.size
+      when 0
+        nil
+      when 1
+        outputs[0]
+      else
+        outputs
+      end
+    end
+
+    def to_x86
+      pp self
+      X86Assembler.new(self).compile
+    end
+
+    def assembler
+      Assembler.new(self)
+    end
+
     class Assembler
-      attr_reader :insns, :labels
-
-      def initialize
-        @insns = []
-        @labels = []
-        @last_output = 0
+      def initialize(ir)
+        @ir = ir
       end
 
-      def label(name = nil)
-        number = @labels.size
-        name ||= "L#{number}"
-        label = Label.new(name, number)
-        @labels << label
-        label
+      def label(*args)
+        @ir.label(*args)
       end
 
-      def build_output
-        @last_output += 1
-        OutOpnd.new(@last_output)
-      end
-
-      def method_missing(name, *inputs)
-        klass = DEFINITIONS.fetch(name.to_s)
-
-        num_inputs = klass.inputs
-        num_outputs = klass.outputs
-
-        if num_inputs == :any
-          num_inputs = inputs.size
-        end
-
-        raise ArgumentError, "expected #{num_inputs} inputs for #{name}, got #{inputs.size}" unless num_inputs == inputs.size
-
-        outputs = num_outputs.times.map { build_output }
-        insn = klass.new(outputs, name, inputs)
-        @insns << insn
-
-        case outputs.size
-        when 0
-          nil
-        when 1
-          outputs[0]
-        else
-          outputs
-        end
-      end
-
-      def to_x86
-        pp self
-        X86Assembler.new(self).compile
+      def method_missing(*args)
+        @ir.emit(*args)
       end
     end
   end

@@ -138,7 +138,8 @@ module HawthJit
     def initialize(iseq)
       @iseq = iseq
       @ctx = Context.new
-      @asm = IR::Assembler.new
+      @ir = IR.new
+      @asm = @ir.assembler
     end
 
     def insns
