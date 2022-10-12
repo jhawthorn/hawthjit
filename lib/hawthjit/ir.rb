@@ -105,8 +105,8 @@ module HawthJit
     define :guard_fixnum, 1
 
     define :push_frame, 6
+    define :pop_frame
     define :cfp, 0 => 1
-    define :update_cfp, 1 => 0
     define :update_pc, 1 => 0
     define :update_sp, 1 => 0
     define :call_jit_func, 1 => 1

@@ -149,8 +149,8 @@ module HawthJit
       end
     end
 
-    def ir_update_cfp(insn)
-      asm.mov(CFP, input(insn))
+    def ir_pop_frame(insn)
+      asm.add(CFP, CFPStruct.sizeof)
       ec_cfp_ptr = EC[:cfp]
       asm.mov(ec_cfp_ptr, CFP)
     end
