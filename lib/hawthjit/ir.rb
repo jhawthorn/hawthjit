@@ -7,12 +7,22 @@ module HawthJit
     end
 
     class Instruction
-      attr_reader :outputs, :opcode, :inputs, :props
-      def initialize(outputs, opcode, inputs)
+      attr_reader :outputs, :inputs, :props
+      def initialize(outputs, inputs)
         @outputs = outputs
-        @opcode = opcode
         @inputs = inputs
         @props = {}
+      end
+
+      def opcode
+        name
+      end
+
+      def input
+        if inputs.size != 1
+          raise "input called on instruction with #{inputs.size} inputs"
+        end
+        inputs[0]
       end
 
       def output
@@ -84,6 +94,7 @@ module HawthJit
     define :bind, 1
     define :br, 1
     define :br_cond, 3
+    define :assign, 1 => 1
 
     define :rbool, 1 => 1
     define :rtest, 1 => 1
@@ -157,7 +168,7 @@ module HawthJit
       raise ArgumentError, "expected #{num_inputs} inputs for #{name}, got #{inputs.size}" unless num_inputs == inputs.size
 
       outputs = num_outputs.times.map { build_output }
-      klass.new(outputs, name, inputs)
+      klass.new(outputs, inputs)
     end
 
     def emit(name, *inputs)

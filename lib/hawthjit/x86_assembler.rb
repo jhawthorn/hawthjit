@@ -221,6 +221,11 @@ module HawthJit
       asm.int3
     end
 
+    def ir_assign(insn)
+      asm.mov(out(insn), input(insn))
+    end
+
+
     def condition_code(signedness, op)
       if signedness == :unsigned
         raise "not implemented: #{op.inspect}"

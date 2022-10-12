@@ -35,8 +35,8 @@ module HawthJit
           true
         when :side_exit, :call_jit_func
           true
-        when :br, :br_cond
-          true
+        #when :br, :br_cond
+        #  true
         else
           false
         end
