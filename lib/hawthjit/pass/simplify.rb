@@ -7,13 +7,14 @@ module HawthJit
         sources = {}
         remap = {}
 
-        output_ir.insns.each do |insn|
+        insns = output_ir.insns
+        insns.each do |insn|
           insn.outputs.each do |out|
             sources[out] = insn
           end
         end
 
-        output_ir.insns.each do |insn|
+        insns.each_with_index do |insn, idx|
           insn.inputs.map! do |input|
             if (source_insn = sources[input]) && source_insn.name == :assign
               source_insn.input
@@ -21,16 +22,38 @@ module HawthJit
               input
             end
           end
+
+          if insn.name == :rtest &&
+              (source_insn = sources[insn.input])&.name == :rbool
+            # rtest(rbool(x)) == x
+            insns[idx] = IR::ASSIGN.new(insn.outputs, source_insn.inputs)
+          end
+
+          if insn.name == :guard_fixnum && Integer === insn.input
+            if insn.input & 1 == 1
+              # FIXNUM: nothing to do
+              insns[idx] = nil
+            else
+              insns[idx] = output_ir.build(:side_exit)
+            end
+          end
         end
+
+        insns.compact!
 
         # Remove any unused side-effect free code
-        used_inputs = Set.new
-        output_ir.insns.each do |insn|
-          used_inputs.merge(insn.inputs.grep(IR::OutOpnd))
-        end
+        last_size = nil
+        while last_size != insns.size
+          last_size = insns.size
 
-        output_ir.insns.select! do |insn|
-          side_effect?(insn) || insn.outputs.any? { used_inputs.include?(_1) }
+          used_inputs = Set.new
+          insns.each do |insn|
+            used_inputs.merge(insn.inputs.grep(IR::OutOpnd))
+          end
+
+          insns.select! do |insn|
+            side_effect?(insn) || insn.outputs.any? { used_inputs.include?(_1) }
+          end
         end
 
         output_ir

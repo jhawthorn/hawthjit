@@ -328,8 +328,17 @@ module HawthJit
 
     def ir_guard_fixnum(insn)
       reg = input(insn)
-      asm.test reg, 1
-      asm.jz side_exit_label
+      if Integer === reg
+        if reg & 1 == 1
+          # Fixnum
+        else
+          ir_side_exit(insn)
+        end
+      else
+        # Run test
+        asm.test reg, 1
+        asm.jz side_exit_label
+      end
     end
 
     def ir_side_exit(insn)
