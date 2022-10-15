@@ -74,12 +74,17 @@ module HawthJit
       allocate_regs!
 
       @sp = 0
+      @pos = 0
 
-      @ir.insns.each do |insn|
+      while @pos < @ir.insns.size
+        insn = @ir.insns[@pos]
+
         op = insn.opcode
         p insn
         @disasm << "# #{insn}\n" unless op == :comment
         send("ir_#{op}", insn)
+
+        @pos += 1
       end
 
       side_exit_label
@@ -243,13 +248,46 @@ module HawthJit
       end
     end
 
-    def ir_cmp_s(insn)
-      a, op, b = inputs(insn)
+    def next_insn_pos
+      pos = @pos + 1
+      while pos < @ir.insns.size && IR::COMMENT === @ir.insns[pos]
+        pos += 1
+      end
+      pos
+    end
 
-      asm.xor(:rax, :rax)
-      asm.cmp(a, b)
-      asm.emit("set#{condition_code(:signed, op)}", :al)
-      asm.mov(out(insn), :rax)
+    def next_insn
+      @ir.insns[next_insn_pos]
+    end
+
+    def emit_br_cc(cc, label_if, label_else)
+      label_if = x86_labels[label_if]
+      label_else = x86_labels[label_else]
+
+      asm.emit "j#{cc}", label_if
+      asm.jmp label_else
+    end
+
+    def ir_cmp_s(insn)
+      cmp_insn = insn
+      a, op, b = inputs(insn)
+      cc = condition_code(:signed, op)
+
+      if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
+        br_insn = next_insn
+        @pos = next_insn_pos
+
+        cond, label_if, label_else = inputs(br_insn)
+
+        @disasm << "# #{br_insn} (merged)\n"
+        asm.cmp(a, b)
+        emit_br_cc(cc, label_if, label_else)
+      else
+        asm.xor(:rax, :rax)
+        asm.cmp(a, b)
+        asm.emit("set#{cc}", :al)
+        asm.mov(out(insn), :rax)
+      end
     end
 
     def ir_cmp_u(insn)

@@ -14,6 +14,7 @@ module HawthJit
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
       Pass::Simplify,
+      Pass::Simplify, # FIXME
     ]
 
     def self.apply_all(ir)
