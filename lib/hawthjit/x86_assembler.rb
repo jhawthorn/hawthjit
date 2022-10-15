@@ -248,6 +248,20 @@ module HawthJit
       end
     end
 
+    def invert_cc(cc)
+      case cc
+      when "l" then "ge"
+      when "ge" then "l"
+      when "le" then "g"
+      when "g" then "le"
+
+      when "z", "e" then "nz"
+      when "nz", "ne" then "z"
+      else
+        raise "not implemented: #{cc.inspect}"
+      end
+    end
+
     def next_insn_pos
       pos = @pos + 1
       while pos < @ir.insns.size && IR::COMMENT === @ir.insns[pos]
@@ -261,11 +275,24 @@ module HawthJit
     end
 
     def emit_br_cc(cc, label_if, label_else)
-      label_if = x86_labels[label_if]
-      label_else = x86_labels[label_else]
+      x86_label_if = x86_labels[label_if]
+      x86_label_else = x86_labels[label_else]
 
-      asm.emit "j#{cc}", label_if
-      asm.jmp label_else
+      if (bind_insn = next_insn)&.name == :bind
+        if bind_insn.input == label_if
+          asm.emit "j#{invert_cc(cc)}", x86_label_else
+          return
+        end
+
+        if bind_insn.input == label_else
+          asm.emit "j#{cc}", x86_label_if
+          return
+        end
+      end
+
+      # General case: two jumps
+      asm.emit "j#{cc}", x86_label_if
+      asm.jmp x86_label_else
     end
 
     def ir_cmp_s(insn)
@@ -324,12 +351,8 @@ module HawthJit
     def ir_br_cond(insn)
       cond, label_if, label_else = inputs(insn)
 
-      label_if = x86_labels[label_if]
-      label_else = x86_labels[label_else]
-
       asm.test cond, cond
-      asm.jnz label_if
-      asm.jmp label_else
+      emit_br_cc("nz", label_if, label_else)
     end
 
     def ir_update_pc(insn)
