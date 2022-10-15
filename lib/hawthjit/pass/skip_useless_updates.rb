@@ -8,7 +8,10 @@ module HawthJit
         pending = {}
 
         output_ir.instructions.each_with_index do |insn, idx|
-          if is_update?(insn)
+          if insn.name == :jit_return
+            to_remove.merge(pending.values)
+            pending.clear
+          elsif is_update?(insn)
             if pending[insn.name]
               to_remove << pending[insn.name]
             end
