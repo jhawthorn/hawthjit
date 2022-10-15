@@ -322,8 +322,11 @@ module HawthJit
 
     def ir_vm_pop(insn)
       @sp -= 1
-      asm.mov out(insn), sp_ptr
       puts "sp = #{@sp}"
+      if insn.outputs.empty?
+      else
+        asm.mov out(insn), sp_ptr
+      end
     end
 
     def ir_guard_fixnum(insn)

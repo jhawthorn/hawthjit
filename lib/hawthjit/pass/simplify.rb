@@ -54,6 +54,12 @@ module HawthJit
           insns.select! do |insn|
             side_effect?(insn) || insn.outputs.any? { used_inputs.include?(_1) }
           end
+
+          insns.each do |insn|
+            if insn.name == :vm_pop && !used_inputs.include?(insn.outputs[0])
+              insn.outputs.clear
+            end
+          end
         end
 
         output_ir
