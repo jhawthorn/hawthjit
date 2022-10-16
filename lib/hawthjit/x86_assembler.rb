@@ -12,6 +12,7 @@ module HawthJit
     GP_REGS = [:rdx, :rsi, :rdi, :r8, :r9, :r10, :r11]
     C_ARG_REGS = %i[rdi rsi rdx rcx r8 r9]
     CALLER_SAVE = %i[rax rcx rdx rdi rsi rsp r8 r9 r10 r11]
+    CALLEE_SAVE = %i[rbx rbp r12 r13 r14 r15]
 
     attr_reader :asm
     def initialize(ir)
@@ -57,6 +58,10 @@ module HawthJit
           else
             false
           end
+        end
+
+        if insn.name =~ /call/
+          insn.props[:preserve_regs] = live - insn.outputs
         end
       end
 
@@ -204,7 +209,10 @@ module HawthJit
       ptr = cast(input(insn))
       raise "call to null pointer" if ptr == 0
 
-      GP_REGS.each do |reg|
+      preserve_regs = insn.props[:preserve_regs]
+      preserve_regs.map! { @regs.fetch(_1) }
+
+      preserve_regs.each do |reg|
         asm.push(reg)
       end
 
@@ -213,7 +221,7 @@ module HawthJit
       asm.mov(:rdi, EC)
 
       asm.call(ptr)
-      GP_REGS.reverse_each do |reg|
+      preserve_regs.reverse_each do |reg|
         asm.pop(reg)
       end
 
