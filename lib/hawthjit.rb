@@ -2,7 +2,11 @@
 require "asmjit"
 
 module HawthJit
-  C = RubyVM::MJIT.const_get(:C)
+  begin
+    C = RubyVM::MJIT.const_get(:C)
+  rescue NameError
+    raise "MJIT doesn't define a 'C' module. HawthJit requires Ruby trunk?"
+  end
 
   CPointer = RubyVM::MJIT.const_get(:CPointer)
   CType = RubyVM::MJIT.const_get(:CType)
