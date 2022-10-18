@@ -38,6 +38,18 @@ class PassTest < HawthJitTest
     assert_equal 3, ir.insns.size
   end
 
+  def test_flattens_stack_operations
+    asm.vm_push 1
+    asm.vm_push 2
+    asm.jit_return asm.add(asm.vm_pop, asm.vm_pop)
+
+    assert_equal 6, ir.insns.size
+
+    run_passes
+
+    assert_equal [:add, :jit_return], ir.insns.map(&:name)
+  end
+
   def run_passes
     @ir = HawthJit::Pass.apply_all(@ir)
   end
