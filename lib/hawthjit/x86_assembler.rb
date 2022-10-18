@@ -98,6 +98,9 @@ module HawthJit
         asm.bind(side_exit_label)
         comment "side exit"
 
+        asm.mov(:rax, STATS.addr_for(:side_exits))
+        asm.add(X86.qword_ptr(:rax, 0), 1)
+
         jit_suffix
         asm.mov :rax, Qundef
         asm.ret

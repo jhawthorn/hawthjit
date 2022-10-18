@@ -17,7 +17,20 @@ class IntegrationTest < HawthJitTest
     assert_equal 2178309, result[:ret]
   end
 
-  def run_jit(code)
+  def test_side_exit
+    result = run_jit(<<~RUBY, min_calls: 2)
+      def foo(n)
+        n + n
+      end
+
+      10.times { foo(32) }
+      foo("foo")
+    RUBY
+    assert_equal "foofoo", result[:ret]
+    assert_equal 1, result[:stats][:side_exits] unless no_jit?
+  end
+
+  def run_jit(code, min_calls: nil)
     lib_path = File.expand_path("../../lib", __FILE__)
     code = <<~RUBY
       if #{!no_jit?}
@@ -30,12 +43,16 @@ class IntegrationTest < HawthJitTest
       }
 
       ret = _test_proc.call
-      IO.open(3).write Marshal.dump({
-        ret: ret
-      })
+      h = {}
+      h[:ret] = ret
+      h[:stats] = HawthJit::STATS.to_h unless #{no_jit?}
+      IO.open(3).write Marshal.dump(h)
     RUBY
     args = []
-    args.concat %W[-I#{lib_path} --mjit=pause --mjit-wait --mjit-verbose] unless no_jit?
+    unless no_jit?
+      args.concat %W[-I#{lib_path} --mjit=pause --mjit-wait --mjit-verbose]
+      args << "--mjit-min-calls=#{min_calls}"
+    end
     args << "-e" << code
 
     out_r, out_w = IO.pipe

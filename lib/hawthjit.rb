@@ -18,6 +18,8 @@ module HawthJit
   # FIXME: Is there a non-hardcoded way to get this?
   Qundef = 0x34
 
+  SIZEOF_VALUE = 8
+
   def self.compile(iseq_ptr)
     Compiler.new(iseq_ptr).compile
   end
@@ -38,3 +40,4 @@ require "hawthjit/compiler"
 require "hawthjit/ir"
 require "hawthjit/x86_assembler"
 require "hawthjit/pass"
+require "hawthjit/stats"
