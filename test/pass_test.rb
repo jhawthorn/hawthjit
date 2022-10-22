@@ -36,10 +36,10 @@ class PassTest < HawthJitTest
 
   def test_removes_unnecessary_updates
     asm.update_pc(1)
-    asm.update_sp(2)
+    asm.update_sp
 
     asm.update_pc(3)
-    asm.update_sp(4)
+    asm.update_sp
 
     asm.side_exit
 

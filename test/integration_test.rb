@@ -33,7 +33,7 @@ class IntegrationTest < HawthJitTest
       [foo(32), foo(3)]
     RUBY
     assert_equal [11, 6], result[:ret]
-    assert_equal 1, result[:stats][:side_exits] unless no_jit?
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
   end
 
 
