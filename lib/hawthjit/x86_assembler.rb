@@ -78,7 +78,6 @@ module HawthJit
     def compile
       allocate_regs!
 
-      @sp = 0
       @pos = 0
 
       while @pos < @ir.insns.size
@@ -383,28 +382,23 @@ module HawthJit
       scratch = :rax
 
       input_sp = input(insn)
-      #raise "bad sp #{input_sp} != #{@sp}" unless input(insn) == @sp
 
-      asm.lea(scratch, sp_ptr)
+      asm.lea(scratch, sp_ptr(insn.props[:sp]))
       asm.mov(CFP[:sp], scratch)
     end
 
-    def sp_ptr(offset = 0)
-      X86.ptr(BP, (@sp + offset) * 8, 8)
+    def sp_ptr(offset)
+      X86.ptr(BP, offset * 8, 8)
     end
 
     def ir_vm_push(insn)
-      asm.mov sp_ptr, input(insn)
-      @sp += 1
-      puts "sp = #{@sp}"
+      asm.mov sp_ptr(insn.props[:sp]), input(insn)
     end
 
     def ir_vm_pop(insn)
-      @sp -= 1
-      puts "sp = #{@sp}"
       if insn.outputs.empty?
       else
-        asm.mov out(insn), sp_ptr
+        asm.mov out(insn), sp_ptr(insn.props[:sp])
       end
     end
 
