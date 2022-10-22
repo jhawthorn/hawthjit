@@ -373,10 +373,10 @@ module HawthJit
       visitor_method = :"compile_#{insn.name}"
       raise CantCompile unless respond_to?(visitor_method)
 
-      asm.comment "YARV: #{insn}"
-
       label = labels.fetch(insn.pos)
       @asm.bind(label)
+
+      asm.comment "YARV: #{insn}"
 
       asm.update_pc insn.pc
       asm.update_sp
