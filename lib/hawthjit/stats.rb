@@ -32,6 +32,10 @@ module HawthJit
         [key, self[key]]
       end.to_h
     end
+
+    def print_stats
+      pp to_h
+    end
   end
 
   STATS = Stats.new

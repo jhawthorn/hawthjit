@@ -24,7 +24,7 @@ module HawthJit
     Compiler.new(iseq_ptr).compile
   end
 
-  def self.enable
+  def self.enable(print_stats: true)
     RubyVM::MJIT.instance_eval do
       def compile(iseq_ptr)
         ptr = HawthJit.compile(iseq_ptr)
@@ -32,6 +32,18 @@ module HawthJit
       end
     end
     RubyVM::MJIT.resume
+
+    if print_stats
+      at_exit {
+        RubyVM::MJIT.instance_eval do
+          def compile(iseq_ptr)
+            0
+          end
+        end
+        RubyVM::MJIT.pause # doesn't work :(
+        HawthJit::STATS.print_stats
+      }
+    end
   end
 end
 
