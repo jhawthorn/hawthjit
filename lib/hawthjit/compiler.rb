@@ -88,13 +88,12 @@ module HawthJit
     end
 
     class Insn
-      attr_reader :insn, :operands, :pos, :pc, :relative_sp
-      def initialize(insn, operands, pos, pc, relative_sp)
+      attr_reader :insn, :operands, :pos, :pc
+      def initialize(insn, operands, pos, pc)
         @insn = insn
         @operands = operands
         @pos = pos
         @pc = pc
-        @relative_sp = relative_sp
       end
 
       def next_pc
@@ -147,7 +146,6 @@ module HawthJit
 
       insns = []
       pos = 0
-      relative_sp = 0
       while pos < body.iseq_size
         insn = INSNS.fetch(C.rb_vm_insn_decode(body.iseq_encoded[pos]))
         sp_inc = C.mjit_call_attribute_sp_inc(insn.bin, body.iseq_encoded + pos + 1)
@@ -158,8 +156,7 @@ module HawthJit
           )
         end
         pc = body.iseq_encoded.to_i + pos * 8
-        insns << Insn.new(insn, operands, pos, pc, relative_sp)
-        relative_sp += sp_inc
+        insns << Insn.new(insn, operands, pos, pc)
         pos += insn.len
       end
 
@@ -332,7 +329,7 @@ module HawthJit
         asm.vm_pop
 
         asm.update_pc insn.next_pc
-        asm.update_sp 99999 # FIXME
+        asm.update_sp
         asm.side_exit
 
         asm.vm_push(Qnil)
@@ -382,7 +379,7 @@ module HawthJit
       @asm.bind(label)
 
       asm.update_pc insn.pc
-      asm.update_sp insn.relative_sp
+      asm.update_sp
 
       send(visitor_method, insn)
     end
