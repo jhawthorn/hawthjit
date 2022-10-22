@@ -17,6 +17,24 @@ class IntegrationTest < HawthJitTest
     assert_equal 2178309, result[:ret]
   end
 
+  def test_compiled_iseq_call
+    result = run_jit(<<~RUBY, min_calls: 2)
+      def bar
+        1 + 1
+      end
+
+      def foo
+        bar + 1
+      end
+
+      10.times {bar}
+      foo
+      foo
+    RUBY
+    assert_equal 3, result[:ret]
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
+  end
+
   def test_branches_rejoined
     result = run_jit(<<~RUBY, min_calls: 2)
       def foo(n)

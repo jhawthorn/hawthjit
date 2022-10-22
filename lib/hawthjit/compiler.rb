@@ -385,7 +385,7 @@ module HawthJit
     end
 
     ALLOWLIST = %w[
-      double fib test foo
+      double fib test foo bar
     ]
 
     def apply_passes(ir)
