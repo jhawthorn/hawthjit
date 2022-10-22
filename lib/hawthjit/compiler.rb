@@ -243,6 +243,11 @@ module HawthJit
       asm.br_cond cond, next_insn, target_insn
     end
 
+    def compile_jump(insn)
+      target_insn = labels.fetch(insn.pos + insn.len + insn[:dst])
+      asm.br target_insn
+    end
+
     class Context
     end
 

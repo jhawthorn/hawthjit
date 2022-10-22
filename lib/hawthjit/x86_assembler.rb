@@ -366,6 +366,13 @@ module HawthJit
       emit_br_cc("nz", label_if, label_else)
     end
 
+    # Unconditional branch
+    def ir_br(insn)
+      label = input(insn)
+      x86_label = x86_labels[label]
+      asm.jmp x86_label
+    end
+
     def ir_update_pc(insn)
       scratch = :rax
       asm.mov(scratch, input(insn))
