@@ -175,11 +175,13 @@ module HawthJit
         X86.qword_ptr(CFP, offset)
       end
 
+      sp = insn.props[:sp]
+
       asm.mov(:rax, cref_or_me)
-      asm.mov(sp_ptr(0), :rax)
+      asm.mov(sp_ptr(sp + 0), :rax)
       block_handler = 0
-      asm.mov(sp_ptr(1), block_handler)
-      asm.mov(sp_ptr(2), flags)
+      asm.mov(sp_ptr(sp + 1), block_handler)
+      asm.mov(sp_ptr(sp + 2), flags)
 
       asm.mov(:rax, pc)
       asm.mov(next_cfp[:pc], :rax)
@@ -188,7 +190,7 @@ module HawthJit
       asm.mov(next_cfp[:block_code], 0)
       asm.mov(next_cfp[:jit_return], 0)
 
-      asm.lea(:rax, sp_ptr(3))
+      asm.lea(:rax, sp_ptr(sp + 3))
       asm.mov(next_cfp[:sp], :rax)
       asm.mov(next_cfp[:__bp__], :rax)
       asm.sub(:rax, 8)

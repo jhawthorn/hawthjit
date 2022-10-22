@@ -48,7 +48,7 @@ module HawthJit
             current_sp = nil
           when :bind
             label = insn.input
-            current_sp ||= sp_at_label[label]
+            current_sp = sp_at_label[label] || current_sp
 
             # Don't attempt optimizing between basic blocks
             push_idx.clear
@@ -57,6 +57,8 @@ module HawthJit
             # May need stack operations for correct side exit
             push_idx.clear
 
+            insn.props[:sp] = current_sp
+          when :push_frame
             insn.props[:sp] = current_sp
           when :comment
             # ignore

@@ -416,6 +416,7 @@ module HawthJit
         puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
         puts code.logger
         puts "==="
+        STDOUT.flush
 
         code.to_ptr
       end
