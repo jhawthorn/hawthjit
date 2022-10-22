@@ -29,6 +29,12 @@ module HawthJit
             insns[idx] = IR::ASSIGN.new(insn.outputs, source_insn.inputs)
           end
 
+          if insn.name == :sub && constant_inputs?(insn)
+            a, b = insn.inputs
+            val = a - b
+            insns[idx] = IR::ASSIGN.new(insn.outputs, [val])
+          end
+
           if insn.name == :guard_fixnum && Integer === insn.input
             if insn.input & 1 == 1
               # FIXNUM: nothing to do
@@ -63,6 +69,10 @@ module HawthJit
         end
 
         output_ir
+      end
+
+      def constant_inputs?(insn)
+        insn.inputs.none? { |x| IR::OutOpnd === x }
       end
     end
   end

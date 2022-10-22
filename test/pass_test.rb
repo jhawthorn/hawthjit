@@ -22,6 +22,18 @@ class PassTest < HawthJitTest
     assert_empty new_ir.insns
   end
 
+  def test_simplifies_constant_subtraction
+    a = asm.vm_pop
+    ret = asm.add(a, asm.sub(2, 1))
+    asm.vm_push(ret)
+
+    assert_equal %i[ vm_pop sub add vm_push ], ir.insns.map(&:name)
+
+    run_passes
+
+    assert_equal %i[ vm_pop add vm_push ], ir.insns.map(&:name)
+  end
+
   def test_removes_unnecessary_updates
     asm.update_pc(1)
     asm.update_sp(2)
