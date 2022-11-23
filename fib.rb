@@ -1,8 +1,8 @@
 begin
   require "hawthjit"
   HawthJit.enable
-rescue LoadError
-  puts "couldn't load hawthjit"
+rescue LoadError => e
+  puts "couldn't load hawthjit: #{e}"
 end
 
 def fib(n)

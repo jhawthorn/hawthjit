@@ -15,8 +15,14 @@ module HawthJit
   Qfalse = Fiddle.dlwrap(false)
   Qnil = Fiddle.dlwrap(nil)
 
-  # FIXME: Is there a non-hardcoded way to get this?
-  Qundef = 0x34
+  # FIXME: In the future get this from Fiddle::Qundef
+  if Qnil == 0x04
+    Qundef = 0x24
+  elsif Qnil == 0x08
+    Qundef = 0x34
+  else
+    raise "unknown value for Qnil: #{Qnil}"
+  end
 
   SIZEOF_VALUE = 8
 
