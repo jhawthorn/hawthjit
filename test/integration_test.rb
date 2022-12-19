@@ -18,7 +18,7 @@ class IntegrationTest < HawthJitTest
   end
 
   def test_compiled_iseq_call
-    result = run_jit(<<~RUBY, min_calls: 2)
+    result = run_jit(<<~RUBY, call_threshold: 2)
       def bar
         1 + 1
       end
@@ -36,7 +36,7 @@ class IntegrationTest < HawthJitTest
   end
 
   def test_branches_rejoined
-    result = run_jit(<<~RUBY, min_calls: 2)
+    result = run_jit(<<~RUBY, call_threshold: 2)
       def foo(n)
         if n < 10
           5
@@ -56,7 +56,7 @@ class IntegrationTest < HawthJitTest
 
 
   def test_side_exit
-    result = run_jit(<<~RUBY, min_calls: 2)
+    result = run_jit(<<~RUBY, call_threshold: 2)
       def foo(n)
         n + n
       end
@@ -68,7 +68,7 @@ class IntegrationTest < HawthJitTest
     assert_equal 1, result[:stats][:side_exits] unless no_jit?
   end
 
-  def run_jit(code, min_calls: nil)
+  def run_jit(code, call_threshold: nil)
     lib_path = File.expand_path("../../lib", __FILE__)
     code = <<~RUBY
       if #{!no_jit?}
@@ -89,7 +89,7 @@ class IntegrationTest < HawthJitTest
     args = []
     unless no_jit?
       args.concat %W[-I#{lib_path} --mjit=pause --mjit-wait --mjit-verbose]
-      args << "--mjit-min-calls=#{min_calls}"
+      args << "--mjit-call-threshold=#{call_threshold}"
     end
     args << "-e" << code
 
