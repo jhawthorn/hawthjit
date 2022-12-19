@@ -2,6 +2,10 @@
 require "asmjit"
 
 module HawthJit
+  if !RubyVM::MJIT.enabled?
+    raise "MJIT isn't inabled. Ruby must be run with --mjit=pause"
+  end
+
   begin
     C = RubyVM::MJIT.const_get(:C)
   rescue NameError
