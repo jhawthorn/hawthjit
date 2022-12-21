@@ -2,7 +2,7 @@ require "helper"
 
 class IntegrationTest < HawthJitTest
   def test_fib
-    result = run_jit(<<~RUBY)
+    result = run_jit(<<~RUBY, call_threshold: 33)
       def fib(n)
         if n < 2
           n
@@ -118,6 +118,8 @@ class IntegrationTest < HawthJitTest
     stats = Marshal.load(stats)
 
     assert_includes out, "Successful MJIT finish" unless no_jit?
+
+    assert stats[:stats][:compile_success] > 0, "nothing was compiled" unless no_jit?
 
     stats
   end

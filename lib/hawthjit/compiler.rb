@@ -418,6 +418,8 @@ module HawthJit
       puts "==="
       STDOUT.flush
 
+      STATS.increment(:compile_success)
+
       code.to_ptr
     end
 

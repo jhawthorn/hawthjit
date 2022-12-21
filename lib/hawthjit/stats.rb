@@ -2,7 +2,10 @@ require "fiddle"
 
 module HawthJit
   class Stats
-    KEYS = [:side_exits]
+    KEYS = %i[
+      side_exits
+      compile_success
+    ]
 
     def initialize
       @buffer = Fiddle::Pointer.malloc(KEYS.size * SIZEOF_VALUE)
@@ -25,6 +28,10 @@ module HawthJit
     def []=(key, value)
       # FIXME: use qword instead of byte
       ptr_for(key)[0] = value
+    end
+
+    def increment(key)
+      self[key] = (self[key] || 0) + 1
     end
 
     def to_h
