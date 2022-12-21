@@ -31,10 +31,28 @@ module HawthJit
   SIZEOF_VALUE = 8
 
   def self.compile(iseq_ptr)
-    Compiler.new(iseq_ptr).compile
+    if should_compile?(iseq_ptr)
+      Compiler.new(iseq_ptr).compile
+    else
+      label = iseq_ptr.body.location.label
+      STDERR.puts "skipping #{label}"
+    end
   end
 
-  def self.enable(print_stats: true)
+  def self.should_compile?(iseq_ptr)
+    if @allowlist
+      label = iseq_ptr.body.location.label
+      if !@allowlist.include?(label)
+        return false
+      end
+    end
+
+    true
+  end
+
+  def self.enable(print_stats: true, only: nil)
+    @allowlist = only && only.map(&:to_s)
+
     RubyVM::MJIT.instance_eval do
       def compile(iseq_ptr)
         ptr = HawthJit.compile(iseq_ptr)

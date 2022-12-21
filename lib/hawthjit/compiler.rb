@@ -390,42 +390,35 @@ module HawthJit
       send(visitor_method, insn)
     end
 
-    ALLOWLIST = %w[
-      double fib test foo bar
-    ]
-
     def apply_passes(ir)
       Pass.apply_all(ir)
     end
 
     def compile
       label = iseq.body.location.label
-      pp iseq.body.location
-      if ALLOWLIST.include? label
-        puts "JIT compiling #{label.inspect}@#{iseq_ptr}"
-        pp insns
-        pp insns.map(&:name).sort.uniq
+      STDERR.puts "JIT compiling #{label.inspect}@#{iseq_ptr}"
+      pp insns
+      pp insns.map(&:name).sort.uniq
 
-        compile_entry
-        insns.each do |insn|
-          ret = compile_insn(insn)
-          break if :stop == ret
-        rescue CantCompile
-          puts "failed to compile #{insn.inspect}"
-          return nil
-        end
-
-        ir = apply_passes(@ir)
-
-        code = ir.to_x86
-
-        puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
-        puts code.logger
-        puts "==="
-        STDOUT.flush
-
-        code.to_ptr
+      compile_entry
+      insns.each do |insn|
+        ret = compile_insn(insn)
+        break if :stop == ret
+      rescue CantCompile
+        STDERR.puts "failed to compile #{insn.inspect}"
+        return nil
       end
+
+      ir = apply_passes(@ir)
+
+      code = ir.to_x86
+
+      puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
+      puts code.logger
+      puts "==="
+      STDOUT.flush
+
+      code.to_ptr
     end
 
     # Compile and set jit_func

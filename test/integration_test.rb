@@ -73,7 +73,7 @@ class IntegrationTest < HawthJitTest
     code = <<~RUBY
       if #{!no_jit?}
         require "hawthjit"
-        HawthJit.enable
+        HawthJit.enable(only: %w[double fib test foo bar])
       end
 
       _test_proc = -> {
