@@ -186,6 +186,10 @@ module HawthJit
     def compile_exit
     end
 
+    def compile_nop(insn)
+      asm.nop # actually needed?
+    end
+
     def compile_getlocal_WC_0(insn)
       # ep = cfp->ep
       cfp = asm.cfp
