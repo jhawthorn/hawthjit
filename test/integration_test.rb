@@ -68,7 +68,7 @@ class IntegrationTest < HawthJitTest
     assert_equal 1, result[:stats][:side_exits] unless no_jit?
   end
 
-  def run_jit(code, call_threshold: nil)
+  def run_jit(code, call_threshold: 2)
     lib_path = File.expand_path("../../lib", __FILE__)
     code = <<~RUBY
       if #{!no_jit?}
@@ -89,7 +89,7 @@ class IntegrationTest < HawthJitTest
     args = []
     unless no_jit?
       args.concat %W[-I#{lib_path} --mjit=pause --mjit-wait --mjit-verbose]
-      args << "--mjit-call-threshold=#{call_threshold}"
+      args << "--mjit-call-threshold=#{call_threshold * 2}"
     end
     args << "-e" << code
 
