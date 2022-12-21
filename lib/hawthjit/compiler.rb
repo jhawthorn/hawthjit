@@ -64,8 +64,12 @@ module HawthJit
           @cc = cc
         end
 
+        def empty?
+          !(@cc.klass && @cc.cme_)
+        end
+
         def inspect
-          if @cc.klass && @cc.cme_
+          if !empty?
             "call_cache(full)"
           else
             "call_cache(empty)"
@@ -291,6 +295,8 @@ module HawthJit
       # FIXME: check that ci is "simple"
 
       # FIXME: guard for cc.klass
+
+      raise CantCompile if cc.empty?
 
       cme = cc.cc.cme_
 
