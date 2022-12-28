@@ -254,6 +254,10 @@ module HawthJit
       push_stack(value)
     end
 
+    def compile_putobject_INT2FIX_0_(insn)
+      push_stack(Fiddle.dlwrap(0))
+    end
+
     def compile_putobject_INT2FIX_1_(insn)
       push_stack(Fiddle.dlwrap(1))
     end
