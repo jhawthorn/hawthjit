@@ -190,16 +190,31 @@ module HawthJit
       asm.nop # actually needed?
     end
 
-    def compile_getlocal_WC_0(insn)
+    def compile_get_ep(level)
       # ep = cfp->ep
       cfp = asm.cfp
       ep = asm.load(cfp, CFPStruct.offset(:ep), 8)
+      level.times do
+        ep = asm.and(asm.load(ep, -8, 8), ~3)
+      end
+      ep
+    end
 
-      local0_offset = -insn[:idx] * 8
+    def compile_getlocal_generic(idx, level)
+      local_offset = -idx * 8
 
-      val = asm.load(ep, local0_offset)
+      ep = compile_get_ep(level)
+      val = asm.load(ep, local_offset)
 
       push_stack(val)
+    end
+
+    def compile_getlocal_WC_0(insn)
+      compile_getlocal_generic(insn[:idx], 0)
+    end
+
+    def compile_getlocal_WC_1(insn)
+      compile_getlocal_generic(insn[:idx], 1)
     end
 
     def compile_putself(insn)
