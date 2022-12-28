@@ -345,12 +345,12 @@ module HawthJit
 
       # FIXME: guard for cc.klass
 
-      raise CantCompile if cc.empty?
+      raise CantCompile, "empty CC" if cc.empty?
 
       cme = cc.cc.cme_
 
       if cme.def.type != C.VM_METHOD_TYPE_ISEQ
-        raise CantCompile
+        raise CantCompile, "not ISEQ"
       end
 
       iseq = cme.def.body.iseq.iseqptr
@@ -453,8 +453,8 @@ module HawthJit
       insns.each do |insn|
         ret = compile_insn(insn)
         break if :stop == ret
-      rescue CantCompile
-        STDERR.puts "failed to compile #{insn.inspect}"
+      rescue CantCompile => e
+        STDERR.puts "failed to compile #{insn.inspect}: #{e.message}"
         return nil
       end
 
