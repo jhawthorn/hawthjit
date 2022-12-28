@@ -112,6 +112,7 @@ module HawthJit
     define :call_jit_func, 1 => 1
 
     define :load, :any => 1
+    define :store, :any => 0
 
     define :add, 2 => 1
     define :add_guard_overflow, 2 => 1

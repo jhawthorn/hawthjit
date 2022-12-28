@@ -217,6 +217,24 @@ module HawthJit
       compile_getlocal_generic(insn[:idx], 1)
     end
 
+    def compile_setlocal_generic(idx, level)
+      local_offset = -idx * 8
+
+      ep = compile_get_ep(level)
+      val = asm.load(ep, local_offset)
+
+      val = pop_stack
+      asm.store(ep, -idx * 8, 8, val)
+    end
+
+    def compile_setlocal_WC_0(insn)
+      compile_setlocal_generic(insn[:idx], 0)
+    end
+
+    def compile_setlocal_WC_1(insn)
+      compile_setlocal_generic(insn[:idx], 1)
+    end
+
     def compile_putself(insn)
       cfp = asm.cfp
       self_ = asm.load(cfp, CFPStruct.offset(:self), 8)
@@ -238,6 +256,12 @@ module HawthJit
 
     def compile_putobject_INT2FIX_1_(insn)
       push_stack(Fiddle.dlwrap(1))
+    end
+
+    def compile_dup(insn)
+      val = pop_stack
+      push_stack val
+      push_stack val
     end
 
     def compile_opt_lt(insn)
@@ -303,6 +327,8 @@ module HawthJit
 
       push_stack(result)
     end
+
+    VM_ENV_DATA_INDEX_SPECVAL = -1
 
     # From vm_core.h
     VM_FRAME_MAGIC_METHOD = 0x11110001

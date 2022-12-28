@@ -18,7 +18,7 @@ class IntegrationTest < HawthJitTest
   end
 
   def test_compiled_iseq_call
-    result = run_jit(<<~RUBY, call_threshold: 2)
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo, :bar])
       def bar
         1 + 1
       end
@@ -36,7 +36,7 @@ class IntegrationTest < HawthJitTest
   end
 
   def test_branches_rejoined
-    result = run_jit(<<~RUBY, call_threshold: 2)
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
       def foo(n)
         if n < 10
           5
@@ -54,9 +54,19 @@ class IntegrationTest < HawthJitTest
     assert_equal 0, result[:stats][:side_exits] unless no_jit?
   end
 
+  def test_addition_in_loop
+    result = run_jit(<<~RUBY, call_threshold: 2)
+      x = 0
+      10_000.times { x = x+1+1+1+1+1+1+1+1+1+1 }
+      x
+    RUBY
+
+    assert_equal 100_000, result[:ret]
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
+  end
 
   def test_side_exit
-    result = run_jit(<<~RUBY, call_threshold: 2)
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
       def foo(n)
         n + n
       end
@@ -68,12 +78,12 @@ class IntegrationTest < HawthJitTest
     assert_equal 1, result[:stats][:side_exits] unless no_jit?
   end
 
-  def run_jit(code, call_threshold: 2)
+  def run_jit(code, call_threshold: 2, only: nil)
     lib_path = File.expand_path("../../lib", __FILE__)
     code = <<~RUBY
       if #{!no_jit?}
         require "hawthjit"
-        HawthJit.enable(only: %w[double fib test foo bar])
+        HawthJit.enable(only: #{only.inspect})
       end
 
       _test_proc = -> {

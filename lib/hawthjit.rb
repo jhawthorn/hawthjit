@@ -40,8 +40,15 @@ module HawthJit
   end
 
   def self.should_compile?(iseq_ptr)
+    location = iseq_ptr.body.location
+    path = location.pathobj
+    path = path[0] if Array === path
+
+    return false if path == __FILE__
+    return false if path.start_with?("#{__dir__}/hawthjit/")
+
     if @allowlist
-      label = iseq_ptr.body.location.label
+      label = location.label
       if !@allowlist.include?(label)
         return false
       end

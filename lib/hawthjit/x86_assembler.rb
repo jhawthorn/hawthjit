@@ -131,6 +131,16 @@ module HawthJit
       asm.mov out(insn), mem
     end
 
+    def ir_store(insn)
+      inputs = insn.inputs.dup
+      value = inputs.pop
+      offset = inputs[1] || 0
+      size = inputs[2] || 8
+
+      mem = X86.ptr(input(insn), offset, size)
+      asm.mov mem, cast_input(value)
+    end
+
     BIN_OPS = %i[
       add
       sub
@@ -461,14 +471,18 @@ module HawthJit
       end
     end
 
-    def input(insn, index=0)
-      x = insn.inputs[index]
+    def cast_input(x)
       case x
       when IR::OutOpnd
         @regs.fetch(x)
       else
         x
       end
+    end
+
+    def input(insn, index=0)
+      x = insn.inputs[index]
+      cast_input(x)
     end
   end
 end
