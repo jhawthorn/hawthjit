@@ -10,7 +10,7 @@ module HawthJit
       attr_reader :outputs, :inputs, :props
       def initialize(outputs, inputs)
         @outputs = outputs
-        @inputs = inputs
+        @inputs = inputs.map { cast_input _1 }
         @props = {}
       end
 
@@ -36,13 +36,60 @@ module HawthJit
         "#<#{self.class} #{to_s}>"
       end
 
+      def cast_input(val)
+        if Block === val
+          BlockRef.new(val.name)
+        else
+          val
+        end
+      end
+
+      def inspect_operand(val)
+        case val
+        when BlockRef
+          val.name
+        else
+          val.inspect
+        end
+      end
+
       def to_s
+        return "# #{inputs[0]}" if opcode == :comment
         s = +""
         if outputs.any?
           s << "#{outputs.map(&:to_s).join(", ")} = "
         end
-        s << "#{[opcode, *inputs.map(&:inspect)].join(" ")}"
+        s << "#{[opcode, *inputs.map{ inspect_operand(_1) }].join(" ")}"
         s
+      end
+
+      def branch_or_return?
+        case name
+        when :br, :br_cond, :jit_return
+          true
+        else
+          false
+        end
+      end
+    end
+
+    class BlockRef
+      attr_reader :name
+
+      def initialize(name)
+        @name = name
+      end
+
+      def to_s
+        name
+      end
+
+      def hash
+        name.hash
+      end
+
+      def eql?(other)
+        other.class == BlockRef && other.name == name
       end
     end
 
@@ -55,9 +102,66 @@ module HawthJit
       end
 
       def to_s
-        "$_#{@idx}"
+        "v#{@idx}"
       end
       alias inspect to_s
+    end
+
+    class Block
+      attr_accessor :ir
+      attr_reader :insns, :name
+
+      def initialize(ir, name)
+        @ir = ir
+        @name = -name
+        @insns = []
+      end
+
+      def initialize_copy(other)
+        @ir = other.ir
+        @name = other.name
+        @insns = other.insns.map(&:dup)
+      end
+
+      def ref
+        BlockRef.new(name)
+      end
+
+      def successor_refs
+        insns.select(&:branch_or_return?).flat_map(&:inputs).grep(IR::BlockRef).uniq
+      end
+
+      def successors
+        successor_refs.map { @ir.block(_1) }
+      end
+
+      def emit(name, *inputs)
+        insn = @ir.build(name, *inputs)
+        @insns << insn
+
+        outputs = insn.outputs
+        case outputs.size
+        when 0
+          nil
+        when 1
+          outputs[0]
+        else
+          outputs
+        end
+      end
+
+      def to_s
+        s = +""
+        s << "#{name}:\n"
+        insns.each do |insn|
+          s << "  " << insn.to_s << "\n"
+        end
+        s
+      end
+
+      def inspect
+        "#<#{self.class}\n#{to_s}>"
+      end
     end
 
     DEFINITIONS = {}
@@ -128,19 +232,36 @@ module HawthJit
     define :vm_push, 1 => 0
     define :vm_pop, 0 => 1
 
-    attr_accessor :insns, :labels, :last_output
-    alias instructions insns
+    attr_accessor :last_output
+    attr_accessor :blocks
+
+    def entry
+      @blocks[0]
+    end
 
     def initialize
-      @insns = []
-      @labels = []
+      entry = Block.new(self, "entry")
+      @blocks = [entry]
       @last_output = 0
     end
 
     def initialize_copy(other)
-      @insns = other.insns.dup
-      @labels = other.labels.dup
+      @blocks = other.blocks.map do |block|
+        new_block = block.dup
+        new_block.ir = self
+        new_block
+      end
       @last_output = other.last_output
+    end
+
+    def new_block(name = nil)
+      block = Block.new(self, name)
+      @blocks << block
+      block
+    end
+
+    def block(ref)
+      @blocks.detect{|x| x.name == ref.name }
     end
 
     def label(name = nil)
@@ -172,19 +293,13 @@ module HawthJit
       klass.new(outputs, inputs)
     end
 
-    def emit(name, *inputs)
-      insn = build(name, *inputs)
-      @insns << insn
-
-      outputs = insn.outputs
-      case outputs.size
-      when 0
-        nil
-      when 1
-        outputs[0]
-      else
-        outputs
+    def inspect
+      s = +""
+      s << "#<#{self.class}"
+      @blocks.each do |block|
+        s << "\n" << block.to_s
       end
+      s << ">"
     end
 
     def to_x86

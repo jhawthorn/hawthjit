@@ -142,7 +142,7 @@ module HawthJit
       @iseq = iseq
       @ctx = Context.new
       @ir = IR.new
-      @asm = @ir.assembler
+      @asm = nil
     end
 
     def insns
@@ -167,20 +167,38 @@ module HawthJit
       @insns = insns
     end
 
-    def labels
-      return @labels if @labels
+    # def labels
+    #   return @labels if @labels
 
-      @labels = insns.map do |insn|
-        [insn.pos, @asm.label("pos_#{insn.pos}")]
+    #   @labels = insns.map do |insn|
+    #     [insn.pos, @asm.label("pos_#{insn.pos}")]
+    #   end.to_h
+    # end
+
+    def blocks
+      return @blocks if @blocks
+
+      @blocks = insns.map do |insn|
+        [insn.pos, @ir.new_block("pos_#{insn.pos}")]
       end.to_h
     end
 
     CantCompile = Class.new(StandardError)
 
     def compile_entry
-      @entry_label = asm.label("entry")
-      asm.bind(@entry_label)
-      asm.jit_prelude
+      @entry_block = @ir.entry
+      with_block(@entry_block) do
+        asm.jit_prelude
+        asm.br blocks.fetch(0)
+      end
+    end
+
+    def with_block(block)
+      old_asm, old_block = @asm, @current_block
+      @current_block = block
+      @asm = IR::Assembler.new(block)
+      yield
+      @asm, @current_block = old_asm, old_block
     end
 
     def compile_exit
@@ -285,14 +303,14 @@ module HawthJit
       val = pop_stack
       cond = asm.rtest(val)
 
-      target_insn = labels.fetch(insn.pos + insn.len + insn[:dst])
-      next_insn   = labels.fetch(insn.pos + insn.len)
+      target_insn = blocks.fetch(insn.pos + insn.len + insn[:dst])
+      next_insn   = blocks.fetch(insn.pos + insn.len)
 
       asm.br_cond cond, next_insn, target_insn
     end
 
     def compile_jump(insn)
-      target_insn = labels.fetch(insn.pos + insn.len + insn[:dst])
+      target_insn = blocks.fetch(insn.pos + insn.len + insn[:dst])
       asm.br target_insn
     end
 
@@ -428,15 +446,21 @@ module HawthJit
       visitor_method = :"compile_#{insn.name}"
       raise CantCompile unless respond_to?(visitor_method)
 
-      label = labels.fetch(insn.pos)
-      @asm.bind(label)
+      block = blocks.fetch(insn.pos)
 
-      asm.comment "YARV: #{insn}"
+      with_block(block) do
+        asm.comment "YARV: #{insn}"
 
-      asm.update_pc insn.pc
-      asm.update_sp
+        asm.update_pc insn.pc
+        asm.update_sp
 
-      send(visitor_method, insn)
+        send(visitor_method, insn)
+
+        unless @current_block.insns.any?(&:branch_or_return?)
+          next_block = blocks.fetch(insn.pos + insn.len)
+          asm.br next_block
+        end
+      end
     end
 
     def apply_passes(ir)

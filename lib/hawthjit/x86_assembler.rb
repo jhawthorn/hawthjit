@@ -27,7 +27,10 @@ module HawthJit
     def allocate_regs!
       lifetimes = {}
 
-      @ir.insns.each_with_index.reverse_each do |insn, idx|
+      # FIXME: this is totally incorrect
+      insns = @ir.blocks.flat_map(&:insns)
+
+      insns.each_with_index.reverse_each do |insn, idx|
         insn.inputs.grep(IR::OutOpnd).each do |out|
           lifetimes[out] ||= idx
         end
@@ -44,7 +47,7 @@ module HawthJit
 
       #p lifetimes
 
-      @ir.insns.each_with_index do |insn, idx|
+      insns.each_with_index do |insn, idx|
         outs = insn.outputs
         outs.each do |out|
           @regs[out] = available.shift or raise "out of regs"
@@ -71,6 +74,7 @@ module HawthJit
     def x86_labels
       @x86_labels ||=
         Hash.new do |h, k|
+          raise unless IR::BlockRef === k
           h[k] = asm.new_label
         end
     end
@@ -78,17 +82,16 @@ module HawthJit
     def compile
       allocate_regs!
 
-      @pos = 0
+      @ir.blocks.each do |block|
+        asm.bind(x86_labels[block.ref])
 
-      while @pos < @ir.insns.size
-        insn = @ir.insns[@pos]
+        block.insns.each do |insn|
 
-        op = insn.opcode
-        p insn
-        @disasm << "# #{insn}\n" unless op == :comment
-        send("ir_#{op}", insn)
-
-        @pos += 1
+          op = insn.opcode
+          p insn
+          @disasm << "# #{insn}\n" unless op == :comment
+          send("ir_#{op}", insn)
+        end
       end
 
       side_exit_label
@@ -252,7 +255,6 @@ module HawthJit
       asm.mov(out(insn), input(insn))
     end
 
-
     def condition_code(signedness, op)
       if signedness == :unsigned
         raise "not implemented: #{op.inspect}"
@@ -284,33 +286,33 @@ module HawthJit
       end
     end
 
-    def next_insn_pos
-      pos = @pos + 1
-      while pos < @ir.insns.size && IR::COMMENT === @ir.insns[pos]
-        pos += 1
-      end
-      pos
-    end
+    #def next_insn_pos
+    #  pos = @pos + 1
+    #  while pos < @ir.insns.size && IR::COMMENT === @ir.insns[pos]
+    #    pos += 1
+    #  end
+    #  pos
+    #end
 
-    def next_insn
-      @ir.insns[next_insn_pos]
-    end
+    #def next_insn
+    #  @ir.insns[next_insn_pos]
+    #end
 
     def emit_br_cc(cc, label_if, label_else)
       x86_label_if = x86_labels[label_if]
       x86_label_else = x86_labels[label_else]
 
-      if (bind_insn = next_insn)&.name == :bind
-        if bind_insn.input == label_if
-          asm.emit "j#{invert_cc(cc)}", x86_label_else
-          return
-        end
+      #if (bind_insn = next_insn)&.name == :bind
+      #  if bind_insn.input == label_if
+      #    asm.emit "j#{invert_cc(cc)}", x86_label_else
+      #    return
+      #  end
 
-        if bind_insn.input == label_else
-          asm.emit "j#{cc}", x86_label_if
-          return
-        end
-      end
+      #  if bind_insn.input == label_else
+      #    asm.emit "j#{cc}", x86_label_if
+      #    return
+      #  end
+      #end
 
       # General case: two jumps
       asm.emit "j#{cc}", x86_label_if
@@ -322,21 +324,21 @@ module HawthJit
       a, op, b = inputs(insn)
       cc = condition_code(:signed, op)
 
-      if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
-        br_insn = next_insn
-        @pos = next_insn_pos
+      #if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
+      #  br_insn = next_insn
+      #  @pos = next_insn_pos
 
-        cond, label_if, label_else = inputs(br_insn)
+      #  cond, label_if, label_else = inputs(br_insn)
 
-        @disasm << "# #{br_insn} (merged)\n"
-        asm.cmp(a, b)
-        emit_br_cc(cc, label_if, label_else)
-      else
+      #  @disasm << "# #{br_insn} (merged)\n"
+      #  asm.cmp(a, b)
+      #  emit_br_cc(cc, label_if, label_else)
+      #else
         asm.xor(:rax, :rax)
         asm.cmp(a, b)
         asm.emit("set#{cc}", :al)
         asm.mov(out(insn), :rax)
-      end
+      #end
     end
 
     def ir_cmp_u(insn)
@@ -395,7 +397,7 @@ module HawthJit
 
       input_sp = input(insn)
 
-      asm.lea(scratch, sp_ptr(insn.props[:sp]))
+      asm.lea(scratch, sp_ptr(insn.props.fetch(:sp)))
       asm.mov(CFP[:sp], scratch)
     end
 
@@ -410,7 +412,7 @@ module HawthJit
     def ir_vm_pop(insn)
       if insn.outputs.empty?
       else
-        asm.mov out(insn), sp_ptr(insn.props[:sp])
+        asm.mov out(insn), sp_ptr(insn.props.fetch(:sp))
       end
     end
 

@@ -8,65 +8,95 @@ module HawthJit
         push_idx = []
         push_val = []
 
-        sp_at_label = {}
-        current_sp = 0
+        sp_at_block = {
+          output_ir.entry => 0
+        }
 
-        insns = output_ir.insns
-        insns.each_with_index do |insn, idx|
-          case insn.name
-          when :vm_push
-            push_idx << idx
-            push_val << insn.input
+        output_ir.blocks.each do |block|
+          current_sp = sp_at_block.fetch(block)
 
-            insn.props[:sp] = current_sp
-            current_sp += 1
-          when :vm_pop
-            current_sp -= 1
+          block.insns.each_with_index do |insn, idx|
+            case insn.name
+            when :vm_push
+              insn.props[:sp] = current_sp
+              current_sp += 1
+            when :vm_pop
+              current_sp -= 1
+              insn.props[:sp] = current_sp
+            when :update_sp
+              # May need stack operations for correct side exit
+              push_idx.clear
 
-            push = push_idx.pop
-            val = push_val.pop
-
-            if push
-              insns[push] = nil
-              insns[idx] = IR::ASSIGN.new([insn.output], [val])
-            elsif val
-              pop_insn = IR::VM_POP.new([nil], [])
-              pop_insn.props[:sp] = current_sp
-
-              insns[idx] = [
-                pop_insn,
-                IR::ASSIGN.new([insn.output], [val])
-              ]
-            else
+              insn.props[:sp] = current_sp
+            when :push_frame
               insn.props[:sp] = current_sp
             end
-          when :br, :br_cond
-            labels = insn.inputs.grep(IR::Label)
-            labels.each do |label|
-              sp_at_label[label] = current_sp
+          end
+
+          block.successors.each do |succ|
+            if existing = sp_at_block[succ]
+              raise "sp mismatch" unless existing == current_sp
             end
-            current_sp = nil
-          when :bind
-            label = insn.input
-            current_sp = sp_at_label[label] || current_sp
-
-            # Don't attempt optimizing between basic blocks
-            push_idx.clear
-            push_val.clear
-          when :update_sp
-            # May need stack operations for correct side exit
-            push_idx.clear
-
-            insn.props[:sp] = current_sp
-          when :push_frame
-            insn.props[:sp] = current_sp
-          when :comment
-            # ignore
+            sp_at_block[succ] = current_sp
           end
         end
 
-        insns.flatten!
-        insns.compact!
+        #insns = output_ir.insns
+        #insns.each_with_index do |insn, idx|
+        #  case insn.name
+        #  when :vm_push
+        #    push_idx << idx
+        #    push_val << insn.input
+
+        #    insn.props[:sp] = current_sp
+        #    current_sp += 1
+        #  when :vm_pop
+        #    current_sp -= 1
+
+        #    push = push_idx.pop
+        #    val = push_val.pop
+
+        #    if push
+        #      insns[push] = nil
+        #      insns[idx] = IR::ASSIGN.new([insn.output], [val])
+        #    elsif val
+        #      pop_insn = IR::VM_POP.new([nil], [])
+        #      pop_insn.props[:sp] = current_sp
+
+        #      insns[idx] = [
+        #        pop_insn,
+        #        IR::ASSIGN.new([insn.output], [val])
+        #      ]
+        #    else
+        #      insn.props[:sp] = current_sp
+        #    end
+        #  when :br, :br_cond
+        #    labels = insn.inputs.grep(IR::Label)
+        #    labels.each do |label|
+        #      sp_at_label[label] = current_sp
+        #    end
+        #    current_sp = nil
+        #  when :bind
+        #    label = insn.input
+        #    current_sp = sp_at_label[label] || current_sp
+
+        #    # Don't attempt optimizing between basic blocks
+        #    push_idx.clear
+        #    push_val.clear
+        #  when :update_sp
+        #    # May need stack operations for correct side exit
+        #    push_idx.clear
+
+        #    insn.props[:sp] = current_sp
+        #  when :push_frame
+        #    insn.props[:sp] = current_sp
+        #  when :comment
+        #    # ignore
+        #  end
+        #end
+
+        #insns.flatten!
+        #insns.compact!
 
         output_ir
       end

@@ -4,18 +4,25 @@ module HawthJit
       @input_ir = input_ir
     end
 
+    require "hawthjit/pass/combine_blocks"
     require "hawthjit/pass/drop_unused_labels"
     require "hawthjit/pass/skip_useless_updates"
     require "hawthjit/pass/flatten_stack_operations"
     require "hawthjit/pass/simplify"
 
+    #PASSES = [
+    #  Pass::DropUnusedLabels,
+    #  Pass::SkipUselessUpdates,
+    #  Pass::FlattenStackOperations,
+    #  Pass::Simplify,
+    #  Pass::Simplify, # FIXME
+    #]
+
     PASSES = [
-      Pass::DropUnusedLabels,
-      Pass::SkipUselessUpdates,
+      Pass::CombineBlocks,
       Pass::FlattenStackOperations,
-      Pass::Simplify,
-      Pass::Simplify, # FIXME
     ]
+    #PASSES << Pass::FlattenStackOperations
 
     def self.apply_all(ir)
       PASSES.inject(ir) do |ir, pass|
