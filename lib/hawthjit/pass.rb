@@ -20,6 +20,7 @@ module HawthJit
 
     PASSES = [
       Pass::CombineBlocks,
+      Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
     ]
     #PASSES << Pass::FlattenStackOperations
