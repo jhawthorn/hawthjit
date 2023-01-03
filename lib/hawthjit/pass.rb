@@ -9,6 +9,7 @@ module HawthJit
     require "hawthjit/pass/skip_useless_updates"
     require "hawthjit/pass/flatten_stack_operations"
     require "hawthjit/pass/simplify"
+    require "hawthjit/pass/x86_allocate_registers"
 
     #PASSES = [
     #  Pass::DropUnusedLabels,
@@ -22,6 +23,7 @@ module HawthJit
       Pass::CombineBlocks,
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
+      Pass::Simplify,
     ]
     #PASSES << Pass::FlattenStackOperations
 

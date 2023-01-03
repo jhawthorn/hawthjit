@@ -25,46 +25,19 @@ module HawthJit
     end
 
     def allocate_regs!
-      lifetimes = {}
+      @reg_allocation = Pass::X86AllocateRegisters.new(@ir)
+      @reg_allocation.process
 
-      # FIXME: this is totally incorrect
-      insns = @ir.blocks.flat_map(&:insns)
+      @regs = @reg_allocation.assigns.freeze
 
-      insns.each_with_index.reverse_each do |insn, idx|
-        insn.inputs.grep(IR::OutOpnd).each do |out|
-          lifetimes[out] ||= idx
-        end
-
-        # Never used, allocate a register for scratch anyways ¯\_(ツ)_/¯
-        insn.outputs.each do |output|
-          lifetimes[output] ||= idx
-        end
-      end
-
-      available = GP_REGS.dup
-      live = []
-      @regs = {}
-
-      #p lifetimes
-
-      insns.each_with_index do |insn, idx|
-        outs = insn.outputs
-        outs.each do |out|
-          @regs[out] = available.shift or raise "out of regs"
-          live << out
-        end
-
-        live.reject! do |opnd|
-          if lifetimes[opnd] <= idx
-            available.unshift(@regs[opnd])
-            true
-          else
-            false
+      @ir.blocks.each do |block|
+        block.insns.each_with_index do |insn, idx|
+          if insn.name =~ /call/
+            # FIXME
+            in_use = GP_REGS - insn.outputs
+            insn.props[:preserve_regs] = in_use
+            #insn.props[:preserve_regs] = live - insn.outputs
           end
-        end
-
-        if insn.name =~ /call/
-          insn.props[:preserve_regs] = live - insn.outputs
         end
       end
 
@@ -74,7 +47,7 @@ module HawthJit
     def x86_labels
       @x86_labels ||=
         Hash.new do |h, k|
-          raise unless IR::BlockRef === k
+          raise TypeError, "expected IR::BlockRef, got #{k.inspect}" unless IR::BlockRef === k
           h[k] = asm.new_label
         end
     end
@@ -86,7 +59,6 @@ module HawthJit
         asm.bind(x86_labels[block.ref])
 
         block.insns.each do |insn|
-
           op = insn.opcode
           p insn
           @disasm << "# #{insn}\n" unless op == :comment
@@ -213,21 +185,18 @@ module HawthJit
       asm.mov(EC[:cfp], :rax)
     end
 
-    def cast(opnd)
-      case opnd
-      when IR::Label
-        x86_labels[opnd]
-      else
-        opnd
-      end
-    end
-
     def ir_call_jit_func(insn)
-      ptr = cast(input(insn))
+      ptr = input(insn)
+
+      if IR::BlockRef === ptr
+        ptr = x86_labels[ptr]
+      end
+
       raise "call to null pointer" if ptr == 0
+      raise "call to nil pointer??" if ptr.nil?
 
       preserve_regs = insn.props[:preserve_regs]
-      preserve_regs.map! { @regs.fetch(_1) }
+      #preserve_regs.map! { @regs.fetch(_1) }
 
       preserve_regs.each do |reg|
         asm.push(reg)

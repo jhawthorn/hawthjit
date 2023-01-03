@@ -131,6 +131,10 @@ module HawthJit
         insns.select(&:branch_or_return?).flat_map(&:inputs).grep(IR::BlockRef).uniq
       end
 
+      def terminal?
+        successor_refs.empty?
+      end
+
       def successors
         successor_refs.map { @ir.block(_1) }
       end
@@ -148,6 +152,10 @@ module HawthJit
         else
           outputs
         end
+      end
+
+      def assembler
+        Assembler.new(self)
       end
 
       def to_s
@@ -305,10 +313,6 @@ module HawthJit
     def to_x86
       pp self
       X86Assembler.new(self).compile
-    end
-
-    def assembler
-      Assembler.new(self)
     end
 
     class Assembler

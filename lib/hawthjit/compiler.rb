@@ -390,7 +390,7 @@ module HawthJit
 
       if @iseq.to_i == iseq.to_i
         # self recursive
-        jit_func = @entry_label
+        jit_func = @entry_block
       end
 
       if jit_func == 0
@@ -408,6 +408,8 @@ module HawthJit
         asm.vm_push(Qnil)
         return :stop
       else
+        raise if jit_func.nil?
+
         # Call the previously compiled JIT func
         ret = asm.call_jit_func(jit_func)
 
