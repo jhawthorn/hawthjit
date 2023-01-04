@@ -7,6 +7,8 @@ module HawthJit
         sources = {}
         remap = {}
 
+        blocks = output_ir.blocks
+
         output_ir.blocks.flat_map(&:insns).each do |insn|
           insn.outputs.each do |out|
             sources[out] = insn
@@ -50,25 +52,31 @@ module HawthJit
         end
 
         ## Remove any unused side-effect free code
-        #last_size = nil
-        #while last_size != insns.size
-        #  last_size = insns.size
+        last_size = nil
+        loop do
+          total_insns = blocks.sum { _1.insns.size }
 
-        #  used_inputs = Set.new
-        #  insns.each do |insn|
-        #    used_inputs.merge(insn.inputs.grep(IR::OutOpnd))
-        #  end
+          break if total_insns == last_size
+          last_size = total_insns
 
-        #  insns.select! do |insn|
-        #    side_effect?(insn) || insn.outputs.any? { used_inputs.include?(_1) }
-        #  end
+          used_inputs = blocks.
+            flat_map(&:insns).
+            flat_map(&:inputs).
+            grep(IR::OutOpnd).
+            to_set
 
-        #  insns.each do |insn|
-        #    if insn.name == :vm_pop && !used_inputs.include?(insn.outputs[0])
-        #      insn.outputs.clear
-        #    end
-        #  end
-        #end
+          blocks.each do |block|
+            block.insns.select! do |insn|
+              side_effect?(insn) || insn.outputs.any? { used_inputs.include?(_1) }
+            end
+
+            block.insns.each do |insn|
+              if insn.name == :vm_pop && !used_inputs.include?(insn.outputs[0])
+                insn.outputs.clear
+              end
+            end
+          end
+        end
 
         output_ir
       end
