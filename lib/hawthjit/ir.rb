@@ -305,13 +305,13 @@ module HawthJit
       klass.new(outputs, inputs)
     end
 
+    def to_s
+      @blocks.map(&:to_s).join("\n")
+    end
+
     def inspect
       s = +""
-      s << "#<#{self.class}"
-      @blocks.each do |block|
-        s << "\n" << block.to_s
-      end
-      s << ">"
+      s << "#<#{self.class}\n#{to_s}>"
     end
 
     def to_x86
