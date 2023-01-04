@@ -9,55 +9,61 @@ module HawthJit
 
         blocks = output_ir.blocks
 
-        output_ir.blocks.flat_map(&:insns).each do |insn|
-          insn.outputs.each do |out|
-            sources[out] = insn
-          end
-        end
+        again = true
+        while again
+          again = false
 
-        output_ir.blocks.each do |block|
-          insns = block.insns
-          insns.each_with_index do |insn, idx|
-            insn.inputs.map! do |input|
-              if (source_insn = sources[input]) && source_insn.name == :assign
-                source_insn.input
-              else
-                input
-              end
-            end
-
-            if insn.name == :rtest &&
-                (source_insn = sources[insn.input])&.name == :rbool
-              # rtest(rbool(x)) == x
-              insns[idx] = IR::ASSIGN.new(insn.outputs, source_insn.inputs)
-            end
-
-            if insn.name == :sub && constant_inputs?(insn)
-              a, b = insn.inputs
-              val = a - b
-              insns[idx] = IR::ASSIGN.new(insn.outputs, [val])
-            end
-
-            if insn.name == :guard_fixnum && Integer === insn.input
-              if insn.input & 1 == 1
-                # FIXNUM: nothing to do
-                insns[idx] = nil
-              else
-                insns[idx] = output_ir.build(:side_exit)
-              end
+          output_ir.blocks.flat_map(&:insns).each do |insn|
+            insn.outputs.each do |out|
+              sources[out] = insn
             end
           end
 
-          insns.compact!
-        end
+          output_ir.blocks.each do |block|
+            insns = block.insns
+            insns.each_with_index do |insn, idx|
+              insn.inputs.map! do |input|
+                if (source_insn = sources[input]) && source_insn.name == :assign
+                  again = true
+                  source_insn.input
+                else
+                  input
+                end
+              end
 
-        ## Remove any unused side-effect free code
-        last_size = nil
-        loop do
-          total_insns = blocks.sum { _1.insns.size }
+              if insn.name == :rtest &&
+                  (source_insn = sources[insn.input])&.name == :rbool
+                # rtest(rbool(x)) == x
+                insns[idx] = IR::ASSIGN.new(insn.outputs, source_insn.inputs)
 
-          break if total_insns == last_size
-          last_size = total_insns
+                again = true
+              end
+
+              if insn.name == :sub && constant_inputs?(insn)
+                a, b = insn.inputs
+                val = a - b
+                insns[idx] = IR::ASSIGN.new(insn.outputs, [val])
+
+                again = true
+              end
+
+              if insn.name == :guard_fixnum && Integer === insn.input
+                if insn.input & 1 == 1
+                  # FIXNUM: nothing to do
+                  insns[idx] = nil
+                else
+                  insns[idx] = output_ir.build(:side_exit)
+                end
+
+                again = true
+              end
+            end
+
+            insns.compact!
+          end
+
+          ## Remove any unused side-effect free code
+          size_before = blocks.sum { _1.insns.size }
 
           used_inputs = blocks.
             flat_map(&:insns).
@@ -76,6 +82,11 @@ module HawthJit
               end
             end
           end
+
+          size_after = blocks.sum { _1.insns.size }
+
+          again ||= (size_before != size_after)
+
         end
 
         output_ir

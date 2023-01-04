@@ -24,7 +24,6 @@ module HawthJit
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
       Pass::Simplify,
-      Pass::Simplify,
     ]
     #PASSES << Pass::FlattenStackOperations
 
