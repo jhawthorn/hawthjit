@@ -1,11 +1,5 @@
 module HawthJit
   class IR
-    Label = Struct.new(:name, :number) do
-      def inspect
-        "label:#{name}"
-      end
-    end
-
     class Instruction
       attr_reader :outputs, :inputs, :props
       def initialize(outputs, inputs)
@@ -276,14 +270,6 @@ module HawthJit
       @blocks.detect{|x| x.name == ref.name }
     end
 
-    def label(name = nil)
-      number = @labels.size
-      name ||= "L#{number}"
-      label = Label.new(name, number)
-      @labels << label
-      label
-    end
-
     def build_output
       @last_output += 1
       OutOpnd.new(@last_output)
@@ -322,10 +308,6 @@ module HawthJit
     class Assembler
       def initialize(ir)
         @ir = ir
-      end
-
-      def label(*args)
-        @ir.label(*args)
       end
 
       def method_missing(*args)

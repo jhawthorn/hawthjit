@@ -167,14 +167,6 @@ module HawthJit
       @insns = insns
     end
 
-    # def labels
-    #   return @labels if @labels
-
-    #   @labels = insns.map do |insn|
-    #     [insn.pos, @asm.label("pos_#{insn.pos}")]
-    #   end.to_h
-    # end
-
     def blocks
       return @blocks if @blocks
 
