@@ -155,8 +155,11 @@ module HawthJit
       end
 
       def assembler
-        Assembler.new(self)
+        asm = Assembler.new(self)
+        yield asm if block_given?
+        asm
       end
+      alias asm assembler
 
       def to_s
         s = +""
@@ -262,7 +265,7 @@ module HawthJit
       @last_output = other.last_output
     end
 
-    def new_block(name = nil)
+    def new_block(name)
       block = Block.new(self, name)
       @blocks << block
       block

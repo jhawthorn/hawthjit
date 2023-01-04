@@ -15,6 +15,8 @@ module HawthJit
     CALLEE_SAVE = %i[rbx rbp r12 r13 r14 r15]
 
     attr_reader :asm
+    attr_reader :disasm
+
     def initialize(ir)
       @code = AsmJIT::CodeHolder.new
       @disasm = +""
@@ -66,7 +68,7 @@ module HawthJit
         end
       end
 
-      side_exit_label
+      #side_exit_label
 
       if @side_exit_label
         asm.bind(side_exit_label)
