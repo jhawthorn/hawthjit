@@ -1,5 +1,6 @@
 # https://github.com/jhawthorn/asmjit-ruby
 require "asmjit"
+require "benchmark"
 
 module HawthJit
   if !RubyVM::MJIT.enabled?
@@ -31,10 +32,17 @@ module HawthJit
   SIZEOF_VALUE = 8
 
   def self.compile(iseq_ptr)
+    label = iseq_ptr.body.location.label
     if should_compile?(iseq_ptr)
-      Compiler.new(iseq_ptr).compile
+      ret = nil
+      time = Benchmark.realtime do
+        ret = Compiler.new(iseq_ptr).compile
+      end
+      if ret && ret != 0
+        STDERR.puts "compiled #{label} in %.2f ms\n" % (time * 1000.0)
+      end
+      ret
     else
-      label = iseq_ptr.body.location.label
       STDERR.puts "skipping #{label}"
     end
   end

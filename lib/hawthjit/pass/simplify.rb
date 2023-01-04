@@ -86,7 +86,6 @@ module HawthJit
           size_after = blocks.sum { _1.insns.size }
 
           again ||= (size_before != size_after)
-
         end
 
         output_ir
