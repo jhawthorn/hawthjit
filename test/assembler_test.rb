@@ -43,7 +43,7 @@ class AssemblerTest < HawthJitTest
     end
 
     block_c.asm do |asm|
-      x = asm.add(1, 1)
+      x = asm.phi(0, block_a, 1, block_b)
       asm.jit_return x
     end
 

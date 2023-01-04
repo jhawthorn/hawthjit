@@ -210,6 +210,7 @@ module HawthJit
     define :br, 1
     define :br_cond, 3
     define :assign, 1 => 1
+    define :phi, :any => 1
 
     define :rbool, 1 => 1
     define :rtest, 1 => 1

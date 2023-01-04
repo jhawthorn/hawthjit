@@ -19,6 +19,24 @@ module HawthJit
           end
         end
 
+        # Before everything else, replace phi nodes with assignments
+        # This breaks SSA form as we now have assignments to the same variable
+        # from multiple locations.
+        blocks.each do |block|
+          phi_insns = block.insns.grep(IR::PHI)
+          next if phi_insns.empty?
+
+          phi_insns.each do |phi|
+            phi.inputs.each_slice(2) do |value, predecessor_ref|
+              predecessor = output_ir.block(predecessor_ref)
+
+              assign = IR::ASSIGN.new(phi.outputs, [value])
+              predecessor.insns.insert(-2, assign)
+            end
+            block.insns.delete(phi)
+          end
+        end
+
         # Visit each block to determine which variables are used between blocks
         to_visit = Set.new(blocks)
         while block = to_visit.first
