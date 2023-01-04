@@ -20,7 +20,7 @@ class PassTest < HawthJitTest
       x = asm.add(x, 1)
     end
 
-    new_ir = HawthJit::Pass::Simplify.new(ir).process
+    @ir = HawthJit::Pass::Simplify.new(ir).process
 
     assert_empty insns
   end
