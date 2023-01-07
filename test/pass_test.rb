@@ -26,15 +26,18 @@ class PassTest < HawthJitTest
   end
 
   def test_simplifies_constant_subtraction
-    a = asm.vm_pop
-    ret = asm.add(a, asm.sub(2, 1))
-    asm.vm_push(ret)
+    a = ir.build_output
 
-    assert_equal %i[ vm_pop sub add vm_push ], insns.map(&:name)
+    ret = asm.add(a, asm.sub(2, 1))
+    asm.jit_return(ret)
 
     run_passes
 
-    assert_equal %i[ vm_pop add vm_push ], insns.map(&:name)
+    assert_asm <<~ASM
+      entry:
+        v3 = add v1 1
+        jit_return v3
+    ASM
   end
 
   def test_removes_unnecessary_updates
@@ -62,7 +65,59 @@ class PassTest < HawthJitTest
 
     run_passes
 
-    assert_equal [:add, :jit_return], insns.map(&:name)
+    assert_asm <<~ASM
+      entry:
+        jit_return 3
+    ASM
+  end
+
+  def test_simplifies_phi
+    block_a = ir.new_block("a")
+    block_b = ir.new_block("b")
+    block_c = ir.new_block("c")
+
+    x = asm.add(1, 2)
+
+    block_a.asm do |asm|
+      asm.vm_push x
+      asm.br block_c
+    end
+
+    block_b.asm do |asm|
+      asm.vm_push x
+      asm.br block_c
+    end
+
+    block_c.asm do |asm|
+      y = asm.vm_pop
+      asm.jit_return asm.add(y, y)
+    end
+
+    cond = asm.add(1, 2)
+    asm.br_cond cond, block_a, block_b
+
+    run_passes
+
+    assert_asm <<~ASM
+      entry:
+        br_cond 3 a b
+
+      a:
+        vm_push 3
+        br c
+
+      b:
+        vm_push 3
+        br c
+
+      c:
+        vm_pop
+        jit_return 6
+    ASM
+  end
+
+  def assert_asm(asm, ir: @ir)
+    assert_equal asm, ir.to_s
   end
 
   def run_passes

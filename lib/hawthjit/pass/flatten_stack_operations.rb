@@ -37,7 +37,7 @@ module HawthJit
               current_sp += 1
             when :vm_pop
               remove_idx = push_idx.pop
-              var = stack_variables.pop
+              var = stack_variables.pop or raise "attempt to pop empty stack"
 
               to_remove << remove_idx if remove_idx
 

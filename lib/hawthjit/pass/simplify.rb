@@ -31,10 +31,25 @@ module HawthJit
                 end
               end
 
+              if insn.name == :phi &&
+                  (insn.inputs.each_slice(2).map(&:first).uniq.size == 1)
+                insns[idx] = IR::ASSIGN.new(insn.outputs, [insn.inputs[0]])
+
+                again = true
+              end
+
               if insn.name == :rtest &&
                   (source_insn = sources[insn.input])&.name == :rbool
                 # rtest(rbool(x)) == x
                 insns[idx] = IR::ASSIGN.new(insn.outputs, source_insn.inputs)
+
+                again = true
+              end
+
+              if insn.name == :add && constant_inputs?(insn)
+                a, b = insn.inputs
+                val = a + b
+                insns[idx] = IR::ASSIGN.new(insn.outputs, [val])
 
                 again = true
               end
