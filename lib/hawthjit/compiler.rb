@@ -346,7 +346,9 @@ module HawthJit
 
     # From vm_core.h
     VM_FRAME_MAGIC_METHOD = 0x11110001
+    VM_FRAME_MAGIC_CFUNC  = 0x55550001
     VM_ENV_FLAG_LOCAL     = 0x0002
+    VM_FRAME_FLAG_CFRAME  = 0x0080
 
     def compile_opt_send_without_block(insn)
       ci, cc = insn[:cd]
@@ -359,33 +361,67 @@ module HawthJit
 
       cme = cc.cc.cme_
 
-      if cme.def.type != C.VM_METHOD_TYPE_ISEQ
-        raise CantCompile, "not ISEQ"
+      method_type = cme.def.type
+      if method_type == C.VM_METHOD_TYPE_ISEQ
+        method_type = :iseq
+      elsif method_type == C.VM_METHOD_TYPE_CFUNC
+        method_type = :cfunc
+      else
+        raise CantCompile, "unsupported method type: #{method_type}"
       end
 
-      iseq = cme.def.body.iseq.iseqptr
+      if method_type == :iseq
+        callee_flags = VM_FRAME_MAGIC_METHOD | VM_ENV_FLAG_LOCAL
+        iseq = cme.def.body.iseq.iseqptr
+        callee_pc = iseq.body.iseq_encoded.to_i
+        jit_func = iseq.body.jit_func
 
-      callee_pc = iseq.body.iseq_encoded.to_i
+        if @iseq.to_i == iseq.to_i
+          # self recursive
+          jit_func = @entry_block
+        end
+      elsif method_type == :cfunc
+        callee_flags = VM_FRAME_MAGIC_CFUNC | VM_FRAME_FLAG_CFRAME | VM_ENV_FLAG_LOCAL
+        callee_pc = 0
 
+        # cfunc struct isn't defined by MJIT yet in Ruby 3.2 :(
+        cfunc_func = Fiddle::Pointer.new(cme.def.body.to_i, 8).ptr.to_i
+        cfunc_argc = Fiddle::Pointer.new(cme.def.body.to_i + 16, 4).ptr.to_i
+
+        # on;u supporting exact argc for now
+        raise CantCompile, "cfunc argc" unless cfunc_argc >= 0
+
+        # FIXME: testing
+        raise unless cfunc_argc == 0 && ci.argc == 0
+
+      else
+        raise
+      end
+
+      # FIXME: this is wrong
       self_ = asm.load(asm.cfp, CFPStruct.offset(:self), 8)
 
       push_frame(
-        flags: VM_FRAME_MAGIC_METHOD | VM_ENV_FLAG_LOCAL,
-        iseq: iseq.to_i,
+        flags: callee_flags,
+        iseq: iseq ? iseq.to_i : 0,
         self_: self_,
         specval: 0,
         cref_or_me: cme.to_i,
         pc: callee_pc,
       )
 
-      jit_func = iseq.body.jit_func
+      if method_type == :iseq && jit_func && jit_func != 0
+        # Call the previously compiled JIT func
+        ret = asm.call_jit_func(jit_func)
 
-      if @iseq.to_i == iseq.to_i
-        # self recursive
-        jit_func = @entry_block
-      end
+        # pop arguments in the caller framt
+        ci.argc.times do
+          asm.vm_pop
+        end
+        asm.vm_pop # self
 
-      if jit_func == 0
+        asm.vm_push(ret)
+      elsif method_type == :iseq
         # Side exit _into_ the next control frame
 
         ci.argc.times do
@@ -399,19 +435,19 @@ module HawthJit
 
         asm.vm_push(Qnil)
         return :stop
-      else
-        raise if jit_func.nil?
-
-        # Call the previously compiled JIT func
-        ret = asm.call_jit_func(jit_func)
-
-        # pop arguments in the caller framt
-        ci.argc.times do
+      elsif method_type == :cfunc
+        inputs = ci.argc.times.map do
           asm.vm_pop
         end
-        asm.vm_pop # self
+        inputs.reverse!
+
+        self_ = asm.vm_pop
+
+        ret = asm.c_call(cfunc_func, self_, *inputs)
 
         asm.vm_push(ret)
+      else
+        raise
       end
     end
 

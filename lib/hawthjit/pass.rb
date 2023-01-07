@@ -27,7 +27,7 @@ module HawthJit
       case insn.name
       when :nop
         false
-      when :call_jit_func
+      when :call_jit_func, :c_call
         true
       when :vm_pop
         true

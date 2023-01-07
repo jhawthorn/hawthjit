@@ -35,6 +35,19 @@ class IntegrationTest < HawthJitTest
     assert_equal 0, result[:stats][:side_exits] unless no_jit?
   end
 
+  def test_cfunc_call
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
+      def foo(x)
+        x.reverse
+      end
+
+      foo("foo")
+      foo("foo")
+    RUBY
+    assert_equal "oof", result[:ret]
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
+  end
+
   def test_branches_rejoined
     result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
       def foo(n)

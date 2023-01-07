@@ -187,6 +187,38 @@ module HawthJit
       asm.mov(EC[:cfp], :rax)
     end
 
+    def preserve_regs(insn)
+      preserve_regs = insn.props[:preserve_regs]
+      #preserve_regs.map! { @regs.fetch(_1) }
+
+      preserve_regs.each do |reg|
+        asm.push(reg)
+      end
+
+      yield
+
+      preserve_regs.reverse_each do |reg|
+        asm.pop(reg)
+      end
+    end
+
+    def ir_c_call(insn)
+      ptr = insn.inputs[0]
+
+      preserve_regs(insn) do
+        # FIXME: this can clobber the regs in use :(
+        inputs(insn)[1..].each_with_index do |var, i|
+          reg = C_ARG_REGS[i] or raise("too many args")
+
+          asm.mov(reg, var)
+        end
+
+        asm.call(ptr)
+      end
+
+      asm.mov(out(insn), :rax)
+    end
+
     def ir_call_jit_func(insn)
       ptr = input(insn)
 
@@ -197,25 +229,16 @@ module HawthJit
       raise "call to null pointer" if ptr == 0
       raise "call to nil pointer??" if ptr.nil?
 
-      preserve_regs = insn.props[:preserve_regs]
-      #preserve_regs.map! { @regs.fetch(_1) }
+      preserve_regs(insn) do
+        callee_cfp = X86.qword_ptr(CFP, -CFPStruct.sizeof)
+        asm.lea(:rsi, callee_cfp)
+        asm.mov(:rdi, EC)
 
-      preserve_regs.each do |reg|
-        asm.push(reg)
+        asm.call(ptr)
       end
-
-      callee_cfp = X86.qword_ptr(CFP, -CFPStruct.sizeof)
-      asm.lea(:rsi, callee_cfp)
-      asm.mov(:rdi, EC)
-
-      asm.call(ptr)
-      preserve_regs.reverse_each do |reg|
-        asm.pop(reg)
-      end
-
-      # FIXME: side exit if Qnil
 
       asm.mov(out(insn), :rax)
+      # FIXME: side exit if Qnil
     end
 
     def ir_breakpoint(insn)
