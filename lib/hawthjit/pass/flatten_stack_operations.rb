@@ -4,34 +4,55 @@ module HawthJit
       def process
         output_ir = @input_ir.dup
 
-        # Index of stack pushes which may be elided
-        push_idx = []
-        push_val = []
-
         sp_at_block = {
           output_ir.entry => 0
         }
 
+        stack_variables_at_start = {}
+        stack_variables_at_end = {}
+
+        # goal: wherever possible remove vm_push/vm_pop pairs
+        # when that isn't possible, use the originating variable instead of the
+        # variable from the vm_pop to reduce data dependencies.
+
         output_ir.blocks.each do |block|
-          current_sp = sp_at_block.fetch(block)
+          sp_at_block_start = sp_at_block.fetch(block)
+          current_sp = sp_at_block_start
+
+          stack_variables = current_sp.times.map do
+            output_ir.build_output
+          end
+          stack_variables_at_start[block] = stack_variables.dup
+
+          to_remove = []
 
           block.insns.each_with_index do |insn, idx|
             case insn.name
             when :vm_push
+              stack_variables << insn.input
+
               insn.props[:sp] = current_sp
               current_sp += 1
             when :vm_pop
+              var = stack_variables.pop
+
+              block.insns[idx] = [
+                IR::ASSIGN.new(insn.outputs, [var]),
+                IR::VM_POP.new([], [])
+              ]
+
               current_sp -= 1
               insn.props[:sp] = current_sp
             when :update_sp
-              # May need stack operations for correct side exit
-              push_idx.clear
-
               insn.props[:sp] = current_sp
             when :push_frame
               insn.props[:sp] = current_sp
             end
           end
+
+          block.insns.flatten!
+
+          stack_variables_at_end[block] = stack_variables
 
           block.successors.each do |succ|
             if existing = sp_at_block[succ]
@@ -41,62 +62,31 @@ module HawthJit
           end
         end
 
-        #insns = output_ir.insns
-        #insns.each_with_index do |insn, idx|
-        #  case insn.name
-        #  when :vm_push
-        #    push_idx << idx
-        #    push_val << insn.input
+        phis = {}
+        stack_variables_at_end.each do |block, variables|
+          block.successors.each do |succ|
+            phis[succ] ||= {}
+            phis[succ][block] = variables
+          end
+        end
 
-        #    insn.props[:sp] = current_sp
-        #    current_sp += 1
-        #  when :vm_pop
-        #    current_sp -= 1
+        phis.each do |block, preds|
+          size = preds.values[0].size
+          next if size.zero?
+          new_phis = size.times.map do |i|
+            succ_var = stack_variables_at_start[block][i] || raise
 
-        #    push = push_idx.pop
-        #    val = push_val.pop
+            phi_inputs = preds.flat_map do |pred, pred_vars|
+              pred_var = pred_vars[i] || raise
 
-        #    if push
-        #      insns[push] = nil
-        #      insns[idx] = IR::ASSIGN.new([insn.output], [val])
-        #    elsif val
-        #      pop_insn = IR::VM_POP.new([nil], [])
-        #      pop_insn.props[:sp] = current_sp
+              [pred_var, pred]
+            end
 
-        #      insns[idx] = [
-        #        pop_insn,
-        #        IR::ASSIGN.new([insn.output], [val])
-        #      ]
-        #    else
-        #      insn.props[:sp] = current_sp
-        #    end
-        #  when :br, :br_cond
-        #    labels = insn.inputs.grep(IR::Label)
-        #    labels.each do |label|
-        #      sp_at_label[label] = current_sp
-        #    end
-        #    current_sp = nil
-        #  when :bind
-        #    label = insn.input
-        #    current_sp = sp_at_label[label] || current_sp
+            IR::PHI.new([succ_var], phi_inputs)
+          end
 
-        #    # Don't attempt optimizing between basic blocks
-        #    push_idx.clear
-        #    push_val.clear
-        #  when :update_sp
-        #    # May need stack operations for correct side exit
-        #    push_idx.clear
-
-        #    insn.props[:sp] = current_sp
-        #  when :push_frame
-        #    insn.props[:sp] = current_sp
-        #  when :comment
-        #    # ignore
-        #  end
-        #end
-
-        #insns.flatten!
-        #insns.compact!
+          block.insns.unshift(*new_phis)
+        end
 
         output_ir
       end

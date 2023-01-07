@@ -150,7 +150,7 @@ module HawthJit
           ends[var] = last_pos
         end
 
-        raise "#{starts.keys.inspect} != #{ends.keys.inspect}" unless starts.keys == ends.keys
+        raise "#{starts.keys.inspect} != #{ends.keys.inspect}" unless starts.keys.to_set == ends.keys.to_set
 
         out = {}
         starts.sort_by(&:last).each do |var, start|
