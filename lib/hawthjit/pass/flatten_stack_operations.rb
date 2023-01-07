@@ -24,33 +24,46 @@ module HawthJit
           end
           stack_variables_at_start[block] = stack_variables.dup
 
+          push_idx = []
           to_remove = []
 
           block.insns.each_with_index do |insn, idx|
             case insn.name
             when :vm_push
+              push_idx << idx
               stack_variables << insn.input
 
               insn.props[:sp] = current_sp
               current_sp += 1
             when :vm_pop
+              remove_idx = push_idx.pop
               var = stack_variables.pop
+
+              to_remove << remove_idx if remove_idx
 
               block.insns[idx] = [
                 IR::ASSIGN.new(insn.outputs, [var]),
-                IR::VM_POP.new([], [])
+                (IR::VM_POP.new([], []) unless remove_idx)
               ]
 
               current_sp -= 1
               insn.props[:sp] = current_sp
             when :update_sp
+              # May need stack operations for correct side exit
+              push_idx.clear
+
               insn.props[:sp] = current_sp
             when :push_frame
               insn.props[:sp] = current_sp
             end
           end
 
+          to_remove.compact.each do |idx|
+            block.insns[idx] = nil
+          end
+
           block.insns.flatten!
+          block.insns.compact!
 
           stack_variables_at_end[block] = stack_variables
 
