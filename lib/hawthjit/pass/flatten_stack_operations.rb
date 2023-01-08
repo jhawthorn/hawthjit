@@ -54,9 +54,6 @@ module HawthJit
 
               block.insns[idx] = IR::ASSIGN.new(insn.outputs, [var])
             when :capture_stack_map
-              # May need stack operations for correct side exit
-              push_idx.clear
-
               stack_map = IR::StackMap.new(
                 insn.inputs[0],
                 stack_variables.dup
