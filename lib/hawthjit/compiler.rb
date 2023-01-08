@@ -272,6 +272,14 @@ module HawthJit
       push_stack(Fiddle.dlwrap(1))
     end
 
+    def compile_putnil(insn)
+      push_stack(Qnil)
+    end
+
+    def compile_pop(insn)
+      pop_stack
+    end
+
     def compile_dup(insn)
       val = pop_stack
       push_stack val
