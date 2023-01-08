@@ -5,7 +5,6 @@ module HawthJit
         output_ir = @input_ir.dup
 
         sources = {}
-        remap = {}
 
         blocks = output_ir.blocks
 

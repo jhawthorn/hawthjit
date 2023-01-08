@@ -14,7 +14,7 @@ class AssemblerTest < HawthJitTest
     x = asm.add(1, 2)
     asm.jit_return x
 
-    code, disasm = compile(ir)
+    _code, disasm = compile(ir)
 
     assert_includes disasm, <<~EXPECTED
       # v1 = add 1 2
@@ -47,7 +47,7 @@ class AssemblerTest < HawthJitTest
       asm.jit_return x
     end
 
-    code, disasm = compile(ir)
+    _code, disasm = compile(ir)
 
     # We should see multiple assignments to v2
     assert_includes disasm, "# v2 = assign 0"
