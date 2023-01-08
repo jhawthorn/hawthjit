@@ -93,6 +93,12 @@ module HawthJit
           asm.mov sp_ptr(idx), cast_input(val)
         end
 
+        # update sp
+        sp = stack_map.stack_values.size
+        asm.lea(:rax, sp_ptr(sp))
+        asm.mov(CFP[:sp], :rax)
+
+        # update pc
         asm.mov(:rax, stack_map.pc)
         asm.mov(CFP[:pc], :rax)
       end
