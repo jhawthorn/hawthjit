@@ -130,6 +130,28 @@ class PassTest < HawthJitTest
     ASM
   end
 
+  def test_redundant_multiply
+    # x * x + x * x
+    x = ir.build_output
+    m1, o1 = asm.imul_with_overflow(x, x)
+    asm.guard_not o1
+    m2, o2 = asm.imul_with_overflow(x, x)
+    asm.guard_not o2
+    a1 = asm.add(m1, m2)
+    asm.jit_return a1
+
+    run_passes
+
+    assert_asm <<~ASM
+      entry:
+        v2, v3 = imul_with_overflow v1 v1
+        guard_not v3
+        guard_not v3
+        v6 = add v2 v2
+        jit_return v6
+    ASM
+  end
+
   def assert_asm(asm, ir: @ir)
     assert_equal asm, ir.to_s
   end

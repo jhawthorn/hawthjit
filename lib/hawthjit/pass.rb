@@ -8,12 +8,15 @@ module HawthJit
     require "hawthjit/pass/skip_useless_updates"
     require "hawthjit/pass/flatten_stack_operations"
     require "hawthjit/pass/simplify"
+    require "hawthjit/pass/common_subexpression"
     require "hawthjit/pass/x86_allocate_registers"
 
     PASSES = [
       Pass::CombineBlocks,
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
+      Pass::Simplify,
+      Pass::CommonSubexpression,
       Pass::Simplify,
     ]
 
