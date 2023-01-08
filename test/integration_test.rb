@@ -17,6 +17,20 @@ class IntegrationTest < HawthJitTest
     assert_equal 2178309, result[:ret]
   end
 
+  def test_overflow
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
+      def foo(n)
+        n + n
+      end
+
+      foo(32)
+      foo(32)
+
+      [foo(32), foo(2**62 - 1)]
+    RUBY
+    assert_equal [64, 2 ** 63 - 2], result[:ret]
+  end
+
   def test_compiled_iseq_call
     result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo, :bar])
       def bar

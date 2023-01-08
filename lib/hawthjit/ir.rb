@@ -229,6 +229,7 @@ module HawthJit
 
     define :add, 2 => 1
     define :add_guard_overflow, 2 => 1
+    define :add_with_overflow, 2 => 2
     define :sub, 2 => 1
     define :sub_guard_overflow, 2 => 1
     define :imul, 2 => 1

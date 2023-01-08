@@ -136,15 +136,26 @@ module HawthJit
     end
 
     {
-      add: :jo,
-      sub: :jc,
-      imul: :jo # FIXME: probably wrong
-    }.each do |name, jump|
+      add: :o,
+      sub: :c,
+      imul: :o # FIXME: probably wrong
+    }.each do |name, cc|
       define_method(:"ir_#{name}_guard_overflow") do |insn|
         out = out(insn)
         asm.mov(out, input(insn, 0))
         asm.emit(name.to_s, out, input(insn, 1))
         asm.jo side_exit_label
+      end
+
+      define_method(:"ir_#{name}_with_overflow") do |insn|
+        value_out = out(insn, 0)
+        overflow_out = out(insn, 1)
+
+        p(overflow_out:, cc:)
+        emit_set_cc(overflow_out, cc) do
+          asm.mov(value_out, input(insn, 0))
+          asm.emit(name.to_s, value_out, input(insn, 1))
+        end
       end
     end
 
@@ -410,18 +421,24 @@ module HawthJit
       end
     end
 
-    def emit_set_cc(insn, cc)
+    def emit_set_cc(out, cc)
       asm.xor(:rax, :rax)
       yield
       asm.emit("set#{cc}", :al)
-      asm.mov(out(insn), :rax)
+      asm.mov(out, :rax)
     end
 
     def ir_test_fixnum(insn)
       reg = input(insn)
-      emit_set_cc(insn, "nz") do
+      emit_set_cc(out(insn), "nz") do
         asm.test reg, 1
       end
+    end
+
+    def ir_guard_not(insn)
+      reg = input(insn)
+      asm.test reg, reg
+      asm.jnz side_exit_label
     end
 
     def ir_guard(insn)
@@ -462,8 +479,12 @@ module HawthJit
       asm.ret
     end
 
-    def out(insn)
-      @regs.fetch(insn.output)
+    def out(insn, n=nil)
+      if n
+        @regs.fetch(insn.outputs[n] || raise)
+      else
+        @regs.fetch(insn.output)
+      end
     end
 
     def inputs(insn)
