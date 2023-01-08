@@ -62,15 +62,24 @@ module HawthJit
                 again = true
               end
 
-              if insn.name == :guard_fixnum && Integer === insn.input
-                if insn.input & 1 == 1
-                  # FIXNUM: nothing to do
-                  insns[idx] = nil
-                else
-                  insns[idx] = output_ir.build(:side_exit)
-                end
+              if insn.name == :test_fixnum && Integer === insn.input
+                insns[idx] = IR::ASSIGN.new(insn.outputs, [insn.input & 1])
 
                 again = true
+              end
+
+              if (insn.name == :guard || insn.name == :guard_not) && Integer === insn.input
+                val = insn.input
+                val ^= 1 if insn.name == :guard_not
+
+                case val
+                when 0
+                  insns[idx] = output_ir.build(:side_exit)
+                when 1
+                  insns[idx] = nil
+                else
+                  raise "bad value for guard: #{val.inspect}"
+                end
               end
             end
 

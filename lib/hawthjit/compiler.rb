@@ -290,8 +290,8 @@ module HawthJit
       b = pop_stack
       a = pop_stack
 
-      asm.guard_fixnum b
-      asm.guard_fixnum a
+      asm.guard asm.test_fixnum(a)
+      asm.guard asm.test_fixnum(b)
 
       cond = asm.cmp_s(a, :<, b)
       val = asm.rbool(cond)
@@ -329,8 +329,8 @@ module HawthJit
       b = pop_stack
       a = pop_stack
 
-      asm.guard_fixnum(a)
-      asm.guard_fixnum(b)
+      asm.guard asm.test_fixnum(a)
+      asm.guard asm.test_fixnum(b)
 
       result = asm.sub_guard_overflow(a, b)
       result = asm.add(result, 1) # re-add tag
@@ -342,8 +342,8 @@ module HawthJit
       b = pop_stack
       a = pop_stack
 
-      asm.guard_fixnum(a)
-      asm.guard_fixnum(b)
+      asm.guard asm.test_fixnum(a)
+      asm.guard asm.test_fixnum(b)
 
       result = asm.add_guard_overflow(a, asm.sub(b, 1))
 
@@ -467,8 +467,8 @@ module HawthJit
       a = pop_stack
       b = pop_stack
 
-      asm.guard_fixnum(a)
-      asm.guard_fixnum(b)
+      asm.guard asm.test_fixnum(a)
+      asm.guard asm.test_fixnum(b)
 
       result =
         asm.or(

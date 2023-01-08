@@ -410,19 +410,24 @@ module HawthJit
       end
     end
 
-    def ir_guard_fixnum(insn)
+    def emit_set_cc(insn, cc)
+      asm.xor(:rax, :rax)
+      yield
+      asm.emit("set#{cc}", :al)
+      asm.mov(out(insn), :rax)
+    end
+
+    def ir_test_fixnum(insn)
       reg = input(insn)
-      if Integer === reg
-        if reg & 1 == 1
-          # Fixnum
-        else
-          ir_side_exit(insn)
-        end
-      else
-        # Run test
+      emit_set_cc(insn, "nz") do
         asm.test reg, 1
-        asm.jz side_exit_label
       end
+    end
+
+    def ir_guard(insn)
+      reg = input(insn)
+      asm.test reg, reg
+      asm.jz side_exit_label
     end
 
     def ir_side_exit(insn)
