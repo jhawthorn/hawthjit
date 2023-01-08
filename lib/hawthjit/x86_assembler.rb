@@ -62,9 +62,11 @@ module HawthJit
 
         block.insns.each do |insn|
           op = insn.opcode
-          p insn
           @disasm << "# #{insn}\n" unless op == :comment
-          send("ir_#{op}", insn)
+          method = "ir_#{op}"
+          send(method, insn)
+        rescue
+          raise "exception when handling #{insn.inspect}"
         end
       end
 
