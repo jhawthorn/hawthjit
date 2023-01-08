@@ -70,25 +70,49 @@ module HawthJit
         end
       end
 
-      #side_exit_label
+      side_exit_label
 
       if @side_exit_label
         asm.bind(side_exit_label)
         comment "side exit"
+        build_side_exit()
+      end
 
-        asm.mov(:rax, STATS.addr_for(:side_exits))
-        asm.add(X86.qword_ptr(:rax, 0), 1)
-
-        jit_suffix
-        asm.mov :rax, Qundef
-        asm.ret
+      side_exit_with_map.each do |stack_map, label|
+        asm.bind(label)
+        comment "side exit #{stack_map}"
+        build_side_exit(stack_map)
       end
 
       @code
     end
 
+    def build_side_exit(stack_map = nil)
+      if stack_map
+        stack_map.stack_values.each_with_index do |val, idx|
+          asm.mov sp_ptr(idx), cast_input(val)
+        end
+
+        asm.mov(:rax, stack_map.pc)
+        asm.mov(CFP[:pc], :rax)
+      end
+
+      asm.mov(:rax, STATS.addr_for(:side_exits))
+      asm.add(X86.qword_ptr(:rax, 0), 1)
+
+      jit_suffix
+      asm.mov :rax, Qundef
+      asm.ret
+    end
+
     def side_exit_label
       @side_exit_label ||= asm.new_label
+    end
+
+    def side_exit_with_map
+      @side_exit_with_map ||= Hash.new do |h, k|
+        h[k] = asm.new_label
+      end
     end
 
     def comment(text)
@@ -430,15 +454,15 @@ module HawthJit
     end
 
     def ir_guard_not(insn)
-      reg = input(insn)
+      reg = input(insn, 0)
       asm.test reg, reg
-      asm.jnz side_exit_label
+      asm.jnz side_exit_with_map[insn.input(1)]
     end
 
     def ir_guard(insn)
       reg = input(insn)
       asm.test reg, reg
-      asm.jz side_exit_label
+      asm.jz side_exit_with_map[insn.input(1)]
     end
 
     def ir_side_exit(insn)

@@ -12,15 +12,15 @@ module HawthJit
         name
       end
 
-      def input
-        if inputs.size != 1
+      def input(n = nil)
+        if n.nil? && inputs.size != 1
           raise "input called on instruction with #{inputs.size} inputs"
         end
-        inputs[0]
+        inputs[n || 0] or raise("invalid input #{n.inspect} for #{self.inspect}")
       end
 
       def variable_inputs
-        inputs.grep(IR::OutOpnd)
+        (inputs + inputs.grep(StackMap).flat_map(&:stack_values)).grep(IR::OutOpnd)
       end
 
       def output
@@ -46,6 +46,8 @@ module HawthJit
         case val
         when BlockRef
           val.name
+        when StackMap
+          val.to_s
         else
           val.inspect
         end
@@ -68,6 +70,19 @@ module HawthJit
         else
           false
         end
+      end
+    end
+
+    class StackMap
+      attr_reader :pc, :stack_values
+
+      def initialize(pc, stack_values)
+        @pc = pc
+        @stack_values = stack_values
+      end
+
+      def to_s
+        "<StackMap %#x [%s]>" % [pc, stack_values.map(&:to_s).join(", ")]
       end
     end
 
@@ -216,12 +231,13 @@ module HawthJit
     define :icmp, 3 => 1
 
     define :test_fixnum, 1 => 1
-    define :guard, 1
-    define :guard_not, 1
+    define :guard, 2
+    define :guard_not, 2
 
     define :push_frame, 6
     define :pop_frame
     define :cfp, 0 => 1
+    define :capture_stack_map, 1 => 1
     define :update_pc, 1 => 0
     define :update_sp
     define :call_jit_func, 1 => 1

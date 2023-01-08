@@ -57,13 +57,13 @@ module HawthJit
                 end
               end
 
-              if (insn.name == :guard || insn.name == :guard_not) && Integer === insn.input
-                val = insn.input
+              if (insn.name == :guard || insn.name == :guard_not) && Integer === insn.input(0)
+                val = insn.input(0)
                 val ^= 1 if insn.name == :guard_not
 
                 case val
                 when 0
-                  insns[idx] = output_ir.build(:side_exit)
+                  insns[idx] = output_ir.build(:side_exit, insn.input(1))
                 when 1
                   insns[idx] = nil
                 else

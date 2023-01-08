@@ -290,8 +290,8 @@ module HawthJit
       b = pop_stack
       a = pop_stack
 
-      asm.guard asm.test_fixnum(a)
-      asm.guard asm.test_fixnum(b)
+      guard asm.test_fixnum(a)
+      guard asm.test_fixnum(b)
 
       cond = asm.icmp(a, :slt, b)
       val = asm.rbool(cond)
@@ -325,15 +325,27 @@ module HawthJit
       asm.vm_pop
     end
 
+    def current_stack_map
+      @current_stack_map || raise
+    end
+
+    def guard(x)
+      asm.guard(x, current_stack_map)
+    end
+
+    def guard_not(x)
+      asm.guard_not(x, current_stack_map)
+    end
+
     def compile_opt_minus(insn)
       b = pop_stack
       a = pop_stack
 
-      asm.guard asm.test_fixnum(a)
-      asm.guard asm.test_fixnum(b)
+      guard asm.test_fixnum(a)
+      guard asm.test_fixnum(b)
 
       result, overflow = asm.sub_with_overflow(a, b)
-      asm.guard_not overflow
+      guard_not overflow
       result = asm.add(result, 1) # re-add tag
 
       push_stack(result)
@@ -343,11 +355,11 @@ module HawthJit
       b = pop_stack
       a = pop_stack
 
-      asm.guard asm.test_fixnum(a)
-      asm.guard asm.test_fixnum(b)
+      guard asm.test_fixnum(a)
+      guard asm.test_fixnum(b)
 
       result, overflow = asm.add_with_overflow(a, asm.sub(b, 1))
-      asm.guard_not overflow
+      guard_not overflow
 
       push_stack(result)
     end
@@ -434,9 +446,10 @@ module HawthJit
       elsif method_type == :iseq
         # Side exit _into_ the next control frame
 
+        stack_map = asm.capture_stack_map(insn.next_pc)
         asm.update_pc insn.next_pc
         asm.update_sp
-        asm.side_exit
+        asm.side_exit stack_map
 
         asm.vm_push(Qnil)
         return :stop
@@ -481,7 +494,11 @@ module HawthJit
         asm.update_pc insn.pc
         asm.update_sp
 
+        @current_stack_map = asm.capture_stack_map(insn.pc)
+
         send(visitor_method, insn)
+
+        @current_stack_map = nil
 
         unless @current_block.insns.any?(&:branch_or_return?)
           next_block = blocks.fetch(insn.pos + insn.len)

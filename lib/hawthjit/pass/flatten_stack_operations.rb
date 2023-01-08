@@ -53,6 +53,16 @@ module HawthJit
               var = stack_variables[-n-1] or raise "bad value for topn"
 
               block.insns[idx] = IR::ASSIGN.new(insn.outputs, [var])
+            when :capture_stack_map
+              # May need stack operations for correct side exit
+              push_idx.clear
+
+              stack_map = IR::StackMap.new(
+                insn.inputs[0],
+                stack_variables.dup
+              )
+
+              block.insns[idx] = IR::ASSIGN.new(insn.outputs, [stack_map])
             when :update_sp
               # May need stack operations for correct side exit
               push_idx.clear
