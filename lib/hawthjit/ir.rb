@@ -209,8 +209,7 @@ module HawthJit
     define :rbool, 1 => 1
     define :rtest, 1 => 1
 
-    define :cmp_s, 3 => 1
-    define :cmp_u, 3 => 1
+    define :icmp, 3 => 1
 
     define :test_fixnum, 1 => 1
     define :guard, 1

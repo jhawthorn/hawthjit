@@ -293,7 +293,7 @@ module HawthJit
       asm.guard asm.test_fixnum(a)
       asm.guard asm.test_fixnum(b)
 
-      cond = asm.cmp_s(a, :<, b)
+      cond = asm.icmp(a, :slt, b)
       val = asm.rbool(cond)
 
       push_stack val

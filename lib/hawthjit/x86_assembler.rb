@@ -263,20 +263,17 @@ module HawthJit
       asm.mov(out(insn), input(insn))
     end
 
-    def condition_code(signedness, op)
-      if signedness == :unsigned
-        raise "not implemented: #{op.inspect}"
-      elsif signedness == :signed
-        case op
-        when :<  then "l"  # less than
-        when :<= then "le" # less than or equal
-        when :>  then "g"  # greater than
-        when :>= then "ge" # greater than or equal
-        else
-          raise "not implemented: #{cond.inspect}"
-        end
+    def cmp_cc(op)
+      case op
+      when :eq then "e"  # equal
+      when :ne then "ne" # not equal
+
+      when :slt then "l"  # signed less than
+      when :sle then "le" # signed less than or equal
+      when :sgt then "g" # signed greater than
+      when :sge then "ge" # signed greater than or equal
       else
-        raise ArgumentError, "bad signedness: #{signedness.inspect}"
+        raise "not implemented: #{op.inspect}"
       end
     end
 
@@ -327,31 +324,14 @@ module HawthJit
       asm.jmp x86_label_else
     end
 
-    def ir_cmp_s(insn)
-      cmp_insn = insn
+    def ir_icmp(insn)
       a, op, b = inputs(insn)
-      cc = condition_code(:signed, op)
+      cc = cmp_cc(op)
+      out = out(insn)
 
-      #if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
-      #  br_insn = next_insn
-      #  @pos = next_insn_pos
-
-      #  cond, label_if, label_else = inputs(br_insn)
-
-      #  @disasm << "# #{br_insn} (merged)\n"
-      #  asm.cmp(a, b)
-      #  emit_br_cc(cc, label_if, label_else)
-      #else
-        asm.xor(:rax, :rax)
+      emit_set_cc(out, cc) do
         asm.cmp(a, b)
-        asm.emit("set#{cc}", :al)
-        asm.mov(out(insn), :rax)
-      #end
-    end
-
-    def ir_cmp_u(insn)
-      comment "fixme"
-      asm.int3
+      end
     end
 
     def ir_rtest(insn)
@@ -429,6 +409,17 @@ module HawthJit
       yield
       asm.emit("set#{cc}", :al)
       asm.mov(out, :rax)
+
+      #if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
+      #  br_insn = next_insn
+      #  @pos = next_insn_pos
+
+      #  cond, label_if, label_else = inputs(br_insn)
+
+      #  @disasm << "# #{br_insn} (merged)\n"
+      #  asm.cmp(a, b)
+      #  emit_br_cc(cc, label_if, label_else)
+      #end
     end
 
     def ir_test_fixnum(insn)
