@@ -140,13 +140,6 @@ module HawthJit
       sub: :c,
       imul: :o # FIXME: probably wrong
     }.each do |name, cc|
-      define_method(:"ir_#{name}_guard_overflow") do |insn|
-        out = out(insn)
-        asm.mov(out, input(insn, 0))
-        asm.emit(name.to_s, out, input(insn, 1))
-        asm.jo side_exit_label
-      end
-
       define_method(:"ir_#{name}_with_overflow") do |insn|
         value_out = out(insn, 0)
         overflow_out = out(insn, 1)

@@ -332,7 +332,8 @@ module HawthJit
       asm.guard asm.test_fixnum(a)
       asm.guard asm.test_fixnum(b)
 
-      result = asm.sub_guard_overflow(a, b)
+      result, overflow = asm.sub_with_overflow(a, b)
+      asm.guard_not overflow
       result = asm.add(result, 1) # re-add tag
 
       push_stack(result)
@@ -471,12 +472,11 @@ module HawthJit
       asm.guard asm.test_fixnum(a)
       asm.guard asm.test_fixnum(b)
 
-      result =
-        asm.or(
-          asm.imul_guard_overflow(
+      result, overflow = asm.imul_with_overflow(
             asm.shr(a, 1),
-            asm.sub(b, 1)),
-        1)
+            asm.sub(b, 1))
+      asm.guard_not overflow
+      asm.or(result, 1)
 
       push_stack result
     end

@@ -228,12 +228,11 @@ module HawthJit
     define :store, :any => 0
 
     define :add, 2 => 1
-    define :add_guard_overflow, 2 => 1
     define :add_with_overflow, 2 => 2
     define :sub, 2 => 1
-    define :sub_guard_overflow, 2 => 1
+    define :sub_with_overflow, 2 => 2
     define :imul, 2 => 1
-    define :imul_guard_overflow, 2 => 1
+    define :imul_with_overflow, 2 => 2
     define :or, 2 => 1
     define :and, 2 => 1
     define :xor, 2 => 1
