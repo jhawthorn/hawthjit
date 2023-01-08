@@ -31,6 +31,23 @@ class IntegrationTest < HawthJitTest
     assert_equal [64, 2 ** 63 - 2], result[:ret]
   end
 
+  def test_uncompiled_iseq_call
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
+      def bar
+        1 + 1
+      end
+
+      def foo
+        bar + 1
+      end
+
+      foo
+      foo
+    RUBY
+    assert_equal 3, result[:ret]
+    assert_equal 1, result[:stats][:side_exits] unless no_jit?
+  end
+
   def test_compiled_iseq_call
     result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo, :bar])
       def bar

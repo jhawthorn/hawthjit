@@ -447,8 +447,6 @@ module HawthJit
         # Side exit _into_ the next control frame
 
         stack_map = asm.capture_stack_map(insn.next_pc)
-        asm.update_pc insn.next_pc
-        asm.update_sp
         asm.side_exit stack_map
 
         asm.vm_push(Qnil)

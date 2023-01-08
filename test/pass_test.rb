@@ -60,13 +60,11 @@ class PassTest < HawthJitTest
     asm.update_pc(3)
     asm.update_sp
 
-    asm.side_exit
-
-    assert_equal 5, insns.size
-
     run_passes
 
-    assert_equal 3, insns.size
+    assert_asm <<~ASM
+      entry:
+    ASM
   end
 
   def test_flattens_stack_operations

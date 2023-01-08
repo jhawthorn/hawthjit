@@ -56,9 +56,7 @@ module HawthJit
 
       def requires_update?(insn)
         case insn.name
-        when /guard/
-          true
-        when :side_exit, :call_jit_func
+        when :call_jit_func
           true
         #when :br, :br_cond
         #  true

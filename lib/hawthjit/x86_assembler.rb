@@ -472,7 +472,7 @@ module HawthJit
     end
 
     def ir_side_exit(insn)
-      asm.jmp side_exit_label
+      asm.jmp side_exit_with_map[insn.input(0)]
     end
 
     def set_bp_from_cfp
