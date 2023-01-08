@@ -160,6 +160,16 @@ module HawthJit
       asm.mov(ec_cfp_ptr, CFP)
     end
 
+    def mov64(dest, value)
+      # FIXME: double check this range, can probably support negative
+      if (0..(2**31)).cover?(value)
+        asm.mov(dest, value)
+      else
+        asm.mov(:rax, value)
+        asm.mov(dest, :rax)
+      end
+    end
+
     def ir_push_frame(insn)
       iseq, flags, self_, specval, cref_or_me, pc = inputs(insn)
 
@@ -170,18 +180,14 @@ module HawthJit
 
       sp = insn.props[:sp]
 
-      asm.mov(:rax, cref_or_me)
-      asm.mov(sp_ptr(sp + 0), :rax)
-      block_handler = 0
-      asm.mov(sp_ptr(sp + 1), block_handler)
-      asm.mov(sp_ptr(sp + 2), flags)
+      mov64(sp_ptr(sp + 0), cref_or_me)
+      mov64(sp_ptr(sp + 1), specval)
+      mov64(sp_ptr(sp + 2), flags)
 
-      asm.mov(:rax, pc)
-      asm.mov(next_cfp[:pc], :rax)
-      asm.mov(:rax, iseq)
-      asm.mov(next_cfp[:iseq], :rax)
-      asm.mov(next_cfp[:block_code], 0)
-      asm.mov(next_cfp[:jit_return], 0)
+      mov64(next_cfp[:pc], pc)
+      mov64(next_cfp[:iseq], iseq)
+      mov64(next_cfp[:block_code], 0)
+      mov64(next_cfp[:jit_return], 0)
 
       asm.mov(next_cfp[:self], self_)
 
