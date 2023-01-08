@@ -35,10 +35,9 @@ module HawthJit
       @ir.blocks.each do |block|
         block.insns.each_with_index do |insn, idx|
           if insn.name =~ /call/
-            # FIXME
-            in_use = GP_REGS - insn.outputs
+            live = @reg_allocation.in_use_at(block, idx).values
+            in_use = live - insn.outputs
             insn.props[:preserve_regs] = in_use
-            #insn.props[:preserve_regs] = live - insn.outputs
           end
         end
       end

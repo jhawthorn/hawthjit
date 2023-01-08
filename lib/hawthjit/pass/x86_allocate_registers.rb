@@ -88,6 +88,14 @@ module HawthJit
         output_ir
       end
 
+      def in_use_at(block, idx)
+        liveness = Liveness.from(block, idx..idx)
+        @assigns.select do |var, reg|
+          other_liveness = @all_liveness[var]
+          liveness.intersects?(other_liveness)
+        end
+      end
+
       class Liveness
         attr_reader :blocks
         protected :blocks
