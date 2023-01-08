@@ -45,7 +45,7 @@ module HawthJit
           preds = @predecessors[block]
 
           defined = block.insns.flat_map(&:outputs)
-          used = block.insns.flat_map(&:inputs).grep(IR::OutOpnd)
+          used = block.insns.flat_map(&:variable_inputs)
           required = @block_outputs[block] + used - defined
 
           if @block_inputs[block] < required
@@ -139,7 +139,7 @@ module HawthJit
             ends[out] = idx
           end
 
-          insn.inputs.grep(IR::OutOpnd).each do |input|
+          insn.variable_inputs.each do |input|
             ends[input] = idx
           end
         end

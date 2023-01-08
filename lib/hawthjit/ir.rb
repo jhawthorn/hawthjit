@@ -19,6 +19,10 @@ module HawthJit
         inputs[0]
       end
 
+      def variable_inputs
+        inputs.grep(IR::OutOpnd)
+      end
+
       def output
         if outputs.size != 1
           raise "output called on instruction with #{outputs.size} outputs"

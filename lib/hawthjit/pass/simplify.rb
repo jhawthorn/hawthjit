@@ -81,8 +81,7 @@ module HawthJit
 
           used_inputs = blocks.
             flat_map(&:insns).
-            flat_map(&:inputs).
-            grep(IR::OutOpnd).
+            flat_map(&:variable_inputs).
             to_set
 
           blocks.each do |block|
