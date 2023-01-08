@@ -398,7 +398,7 @@ module HawthJit
         cfunc_func = Fiddle::Pointer.new(cme.def.body.to_i, 8).ptr.to_i
         cfunc_argc = Fiddle::Pointer.new(cme.def.body.to_i + 16, 4).ptr.to_i
 
-        # on;u supporting exact argc for now
+        # only supporting exact argc for now
         raise CantCompile, "cfunc argc" unless cfunc_argc >= 0
 
         # FIXME: testing
@@ -408,8 +408,7 @@ module HawthJit
         raise
       end
 
-      # FIXME: this is wrong
-      self_ = asm.load(asm.cfp, CFPStruct.offset(:self), 8)
+      self_ = asm.vm_stack_topn(ci.argc)
 
       push_frame(
         flags: callee_flags,
@@ -420,24 +419,20 @@ module HawthJit
         pc: callee_pc,
       )
 
+      # pop arguments in the caller frame
+      argv = ci.argc.times.map do
+        asm.vm_pop
+      end.reverse
+      asm.vm_pop
+
       if method_type == :iseq && jit_func && jit_func != 0
         # Call the previously compiled JIT func
-        ret = asm.call_jit_func(jit_func)
 
-        # pop arguments in the caller framt
-        ci.argc.times do
-          asm.vm_pop
-        end
-        asm.vm_pop # self
+        ret = asm.call_jit_func(jit_func)
 
         asm.vm_push(ret)
       elsif method_type == :iseq
         # Side exit _into_ the next control frame
-
-        ci.argc.times do
-          asm.vm_pop
-        end
-        asm.vm_pop
 
         asm.update_pc insn.next_pc
         asm.update_sp
@@ -446,14 +441,7 @@ module HawthJit
         asm.vm_push(Qnil)
         return :stop
       elsif method_type == :cfunc
-        inputs = ci.argc.times.map do
-          asm.vm_pop
-        end
-        inputs.reverse!
-
-        self_ = asm.vm_pop
-
-        ret = asm.c_call(cfunc_func, self_, *inputs)
+        ret = asm.c_call(cfunc_func, self_, *argv)
 
         asm.vm_push(ret)
       else

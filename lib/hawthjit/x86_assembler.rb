@@ -181,6 +181,8 @@ module HawthJit
       asm.mov(next_cfp[:block_code], 0)
       asm.mov(next_cfp[:jit_return], 0)
 
+      asm.mov(next_cfp[:self], self_)
+
       asm.lea(:rax, sp_ptr(sp + 3))
       asm.mov(next_cfp[:sp], :rax)
       asm.mov(next_cfp[:__bp__], :rax)

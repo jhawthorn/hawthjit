@@ -48,6 +48,11 @@ module HawthJit
 
               current_sp -= 1
               insn.props[:sp] = current_sp
+            when :vm_stack_topn
+              n = insn.input
+              var = stack_variables[-n-1] or raise "bad value for topn"
+
+              block.insns[idx] = IR::ASSIGN.new(insn.outputs, [var])
             when :update_sp
               # May need stack operations for correct side exit
               push_idx.clear

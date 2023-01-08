@@ -240,6 +240,7 @@ module HawthJit
 
     define :vm_push, 1 => 0
     define :vm_pop, 0 => 1
+    define :vm_stack_topn, 1 => 1
 
     attr_accessor :last_output
     attr_accessor :blocks

@@ -49,6 +49,26 @@ class IntegrationTest < HawthJitTest
     assert_equal 0, result[:stats][:side_exits] unless no_jit?
   end
 
+  def test_call_object
+    result = run_jit(<<~RUBY, call_threshold: 2)
+      class A
+        def a
+          self
+        end
+      end
+
+      def foo(x)
+        x.a
+      end
+
+      A.new.a
+      foo(A.new)
+      foo(A.new).class.name
+    RUBY
+    assert_equal "A", result[:ret]
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
+  end
+
   def test_cfunc_call
     result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
       def foo(x)
