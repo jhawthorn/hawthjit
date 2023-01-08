@@ -435,10 +435,9 @@ module HawthJit
     end
 
     def emit_set_cc(out, cc)
-      asm.xor(:rax, :rax)
       yield
       asm.emit("set#{cc}", :al)
-      asm.mov(out, :rax)
+      asm.movzx(out, :al)
 
       #if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
       #  br_insn = next_insn
