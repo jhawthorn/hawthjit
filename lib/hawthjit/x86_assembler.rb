@@ -70,25 +70,22 @@ module HawthJit
         end
       end
 
-      side_exit_label
+      side_exit_with_map.each do |stack_map, label|
+        asm.bind(label)
+        comment "side exit #{stack_map}"
+        build_side_exit_with_map(stack_map)
+      end
 
       if @side_exit_label
         asm.bind(side_exit_label)
         comment "side exit"
-        build_side_exit()
-      end
-
-      side_exit_with_map.each do |stack_map, label|
-        asm.bind(label)
-        comment "side exit #{stack_map}"
-        build_side_exit(stack_map)
+        build_side_exit
       end
 
       @code
     end
 
-    def build_side_exit(stack_map = nil)
-      if stack_map
+    def build_side_exit_with_map(stack_map)
         stack_map.stack_values.each_with_index do |val, idx|
           asm.mov sp_ptr(idx), cast_input(val)
         end
@@ -101,8 +98,11 @@ module HawthJit
         # update pc
         asm.mov(:rax, stack_map.pc)
         asm.mov(CFP[:pc], :rax)
+
+        asm.jmp(side_exit_label)
       end
 
+    def build_side_exit
       asm.mov(:rax, STATS.addr_for(:side_exits))
       asm.add(X86.qword_ptr(:rax, 0), 1)
 
