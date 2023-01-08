@@ -25,6 +25,20 @@ class PassTest < HawthJitTest
     assert_empty insns
   end
 
+  def test_simplifies_add_overflow
+    x = asm.assign(2)
+    x, o = asm.add_with_overflow(x, x)
+    asm.guard_not o
+    asm.jit_return(x)
+
+    run_passes
+
+    assert_asm <<~ASM
+      entry:
+        jit_return 4
+    ASM
+  end
+
   def test_simplifies_constant_subtraction
     a = ir.build_output
 

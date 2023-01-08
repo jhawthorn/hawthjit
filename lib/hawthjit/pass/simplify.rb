@@ -46,26 +46,16 @@ module HawthJit
                 again = true
               end
 
-              if insn.name == :add && constant_inputs?(insn)
-                a, b = insn.inputs
-                val = a + b
-                insns[idx] = IR::ASSIGN.new(insn.outputs, [val])
+              if constant_inputs?(insn)
+                replace = constprop(insn)
 
-                again = true
-              end
-
-              if insn.name == :sub && constant_inputs?(insn)
-                a, b = insn.inputs
-                val = a - b
-                insns[idx] = IR::ASSIGN.new(insn.outputs, [val])
-
-                again = true
-              end
-
-              if insn.name == :test_fixnum && Integer === insn.input
-                insns[idx] = IR::ASSIGN.new(insn.outputs, [insn.input & 1])
-
-                again = true
+                if replace
+                  raise unless replace.size == insn.outputs.size
+                  insns[idx] = replace.map.with_index do |val, idx|
+                    IR::ASSIGN.new([insn.outputs[idx]], [val])
+                  end
+                  again = true
+                end
               end
 
               if (insn.name == :guard || insn.name == :guard_not) && Integer === insn.input
@@ -83,6 +73,7 @@ module HawthJit
               end
             end
 
+            insns.flatten!
             insns.compact!
           end
 
@@ -117,6 +108,26 @@ module HawthJit
 
       def constant_inputs?(insn)
         insn.inputs.none? { |x| IR::OutOpnd === x }
+      end
+
+      def constprop(insn)
+        a, b = insn.inputs
+        case insn.name
+        when :add
+          [a + b]
+        when :add_with_overflow
+          # FIXME: maybe needs an actual overflow check?
+          [a + b, 0]
+        when :sub
+          [a - b]
+        when :sub_with_overflow
+          # FIXME: maybe needs an actual overflow check?
+          [a - b, 0]
+        when :test_fixnum
+          [a & 1]
+        else
+          nil
+        end
       end
     end
   end
