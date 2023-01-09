@@ -56,17 +56,16 @@ module HawthJit
     def compile
       allocate_regs!
 
-      @ir.blocks.each do |block|
-        asm.bind(x86_labels[block.ref])
+      @visited_blocks = Set.new
+      queue = @ir.blocks.dup
+      while block = @next_block || queue.shift
+        block = @ir.block(block) if IR::BlockRef === block
 
-        block.insns.each do |insn|
-          op = insn.opcode
-          @disasm << "# #{insn}\n" unless op == :comment
-          method = "ir_#{op}"
-          send(method, insn)
-        rescue
-          raise "exception when handling #{insn.inspect}"
-        end
+        next if @visited_blocks.include?(block)
+        @visited_blocks.add(block)
+
+        @next_block = nil
+        compile_block(block)
       end
 
       side_exit_with_map.each do |stack_map, label|
@@ -84,22 +83,37 @@ module HawthJit
       @code
     end
 
-    def build_side_exit_with_map(stack_map)
-        stack_map.stack_values.each_with_index do |val, idx|
-          asm.mov sp_ptr(idx), cast_input(val)
-        end
+    def compile_block(block)
+      asm.bind(x86_labels[block.ref])
 
-        # update sp
-        sp = stack_map.stack_values.size
-        asm.lea(:rax, sp_ptr(sp))
-        asm.mov(CFP[:sp], :rax)
+      block.insns.each do |insn|
+        raise if @next_block # can only be set on last instruction
 
-        # update pc
-        asm.mov(:rax, stack_map.pc)
-        asm.mov(CFP[:pc], :rax)
-
-        asm.jmp(side_exit_label)
+        op = insn.opcode
+        @disasm << "# #{insn}\n" unless op == :comment
+        method = "ir_#{op}"
+        send(method, insn)
+      rescue
+        raise "exception when handling #{insn.inspect}"
       end
+    end
+
+    def build_side_exit_with_map(stack_map)
+      stack_map.stack_values.each_with_index do |val, idx|
+        asm.mov sp_ptr(idx), cast_input(val)
+      end
+
+      # update sp
+      sp = stack_map.stack_values.size
+      asm.lea(:rax, sp_ptr(sp))
+      asm.mov(CFP[:sp], :rax)
+
+      # update pc
+      asm.mov(:rax, stack_map.pc)
+      asm.mov(CFP[:pc], :rax)
+
+      asm.jmp(side_exit_label)
+    end
 
     def build_side_exit
       asm.mov(:rax, STATS.addr_for(:side_exits))
@@ -333,25 +347,21 @@ module HawthJit
     #  @ir.insns[next_insn_pos]
     #end
 
+    def emit_direct_jump(block)
+      x86_label = x86_labels[block]
+      if @visited_blocks.include?(block)
+        asm.jmp x86_label
+      else
+        comment "jmp #{x86_label}"
+        @next_block = block
+      end
+    end
+
     def emit_br_cc(cc, label_if, label_else)
       x86_label_if = x86_labels[label_if]
-      x86_label_else = x86_labels[label_else]
 
-      #if (bind_insn = next_insn)&.name == :bind
-      #  if bind_insn.input == label_if
-      #    asm.emit "j#{invert_cc(cc)}", x86_label_else
-      #    return
-      #  end
-
-      #  if bind_insn.input == label_else
-      #    asm.emit "j#{cc}", x86_label_if
-      #    return
-      #  end
-      #end
-
-      # General case: two jumps
       asm.emit "j#{cc}", x86_label_if
-      asm.jmp x86_label_else
+      emit_direct_jump(label_else)
     end
 
     def ir_icmp(insn)

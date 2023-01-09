@@ -195,6 +195,8 @@ module HawthJit
           EFlag.new(:nz)
         when :add_with_overflow
           EFlag.new(:o)
+        when :sub_with_overflow
+          EFlag.new(:c)
         when :icmp
           EFlag.new(X86Assembler.cmp_cc(insn.input(1)).to_sym)
         else
