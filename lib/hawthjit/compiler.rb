@@ -468,13 +468,13 @@ module HawthJit
       a = pop_stack
       b = pop_stack
 
-      asm.guard asm.test_fixnum(a)
-      asm.guard asm.test_fixnum(b)
+      guard asm.test_fixnum(a)
+      guard asm.test_fixnum(b)
 
       result, overflow = asm.imul_with_overflow(
             asm.shr(a, 1),
             asm.sub(b, 1))
-      asm.guard_not overflow
+      guard_not overflow
       asm.or(result, 1)
 
       push_stack result
