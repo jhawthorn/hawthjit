@@ -128,13 +128,13 @@ module HawthJit
         end
 
         def size
-          @blocks.sum(&:size)
+          covered_instructions.size
         end
 
         def covered_instructions
           @blocks.flat_map do |block, range|
             block.insns[range]
-          end
+          end.grep_v(IR::COMMENT)
         end
 
         def self.from(block, range)
@@ -195,6 +195,8 @@ module HawthJit
           EFlag.new(:nz)
         when :add_with_overflow
           EFlag.new(:o)
+        when :icmp
+          EFlag.new(X86Assembler.cmp_cc(insn.input(1)).to_sym)
         else
           nil
         end
@@ -202,7 +204,7 @@ module HawthJit
 
       def can_consume_eflag?(insn)
         case insn.name
-        when :guard, :guard_not
+        when :guard, :guard_not, :br_cond
           true
         else
           false

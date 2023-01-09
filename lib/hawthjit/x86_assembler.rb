@@ -292,7 +292,7 @@ module HawthJit
       asm.mov(out(insn), input(insn))
     end
 
-    def cmp_cc(op)
+    def self.cmp_cc(op)
       case op
       when :eq then "e"  # equal
       when :ne then "ne" # not equal
@@ -305,6 +305,7 @@ module HawthJit
         raise "not implemented: #{op.inspect}"
       end
     end
+    def cmp_cc(...) = self.class.cmp_cc(...)
 
     def invert_cc(cc)
       case cc.to_s
@@ -392,8 +393,9 @@ module HawthJit
     def ir_br_cond(insn)
       cond, label_if, label_else = inputs(insn)
 
-      asm.test cond, cond
-      emit_br_cc("nz", label_if, label_else)
+      with_flag_input(cond) do |cc|
+        emit_br_cc(cc, label_if, label_else)
+      end
     end
 
     # Unconditional branch
