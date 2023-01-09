@@ -71,6 +71,15 @@ module HawthJit
         end
 
         @all_liveness.each do |var, liveness|
+          if liveness.size == 2
+            insn0, insn1 = liveness.covered_instructions
+            eflag = eflags_output(insn0)
+            if eflag && var == insn0.outputs.last && can_consume_eflag?(insn1)
+              @assigns[var] = eflag
+              next
+            end
+          end
+
           reg = @available.detect do |reg|
             @assigns.all? do |other_var, other_reg|
               next true if other_reg != reg
@@ -115,6 +124,16 @@ module HawthJit
           blocks.any? do |block, range|
             other_range = other.blocks[block]
             other_range && range_intersects?(range, other_range)
+          end
+        end
+
+        def size
+          @blocks.sum(&:size)
+        end
+
+        def covered_instructions
+          @blocks.flat_map do |block, range|
+            block.insns[range]
           end
         end
 
@@ -166,6 +185,28 @@ module HawthJit
           out[var] = Liveness.from(block, range)
         end
         out
+      end
+
+      EFlag = Struct.new(:cc)
+
+      def eflags_output(insn)
+        case insn.name
+        when :test_fixnum
+          EFlag.new(:nz)
+        when :add_with_overflow
+          EFlag.new(:o)
+        else
+          nil
+        end
+      end
+
+      def can_consume_eflag?(insn)
+        case insn.name
+        when :guard, :guard_not
+          true
+        else
+          false
+        end
       end
     end
   end

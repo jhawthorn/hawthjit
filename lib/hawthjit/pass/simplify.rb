@@ -121,6 +121,14 @@ module HawthJit
         when :sub_with_overflow
           # FIXME: maybe needs an actual overflow check?
           [a - b, 0]
+        when :and
+          [a & b]
+        when :or
+          [a | b]
+        when :xor
+          [a ^ b]
+        when :shr
+          [a >> b]
         when :test_fixnum
           [a & 1]
         else

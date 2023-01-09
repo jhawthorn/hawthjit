@@ -307,7 +307,7 @@ module HawthJit
     end
 
     def invert_cc(cc)
-      case cc
+      case cc.to_s
       when "l" then "ge"
       when "ge" then "l"
       when "le" then "g"
@@ -435,8 +435,10 @@ module HawthJit
 
     def emit_set_cc(out, cc)
       yield
-      asm.emit("set#{cc}", :al)
-      asm.movzx(out, :al)
+      unless Pass::X86AllocateRegisters::EFlag === out
+        asm.emit("set#{cc}", :al)
+        asm.movzx(out, :al)
+      end
 
       #if next_insn.name == :br_cond && next_insn.inputs[0] == cmp_insn.output
       #  br_insn = next_insn
@@ -457,16 +459,26 @@ module HawthJit
       end
     end
 
+    def with_flag_input(input)
+      if Pass::X86AllocateRegisters::EFlag === input
+        yield input.cc
+      else
+        asm.test input, input
+        yield :nz
+      end
+    end
+
     def ir_guard_not(insn)
-      reg = input(insn, 0)
-      asm.test reg, reg
-      asm.jnz side_exit_with_map[insn.input(1)]
+      with_flag_input(input(insn, 0)) do |cc|
+        asm.emit "j#{cc}", side_exit_with_map[insn.input(1)]
+      end
     end
 
     def ir_guard(insn)
-      reg = input(insn)
-      asm.test reg, reg
-      asm.jz side_exit_with_map[insn.input(1)]
+      with_flag_input(input(insn, 0)) do |cc|
+        cc = invert_cc(cc)
+        asm.emit "j#{cc}", side_exit_with_map[insn.input(1)]
+      end
     end
 
     def ir_side_exit(insn)
