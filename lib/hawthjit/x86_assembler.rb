@@ -36,7 +36,7 @@ module HawthJit
         block.insns.each_with_index do |insn, idx|
           if insn.name =~ /call/
             live = @reg_allocation.in_use_at(block, idx).values
-            in_use = live - insn.outputs
+            in_use = live - insn.outputs.map { @regs.fetch(_1) }
             insn.props[:preserve_regs] = in_use
           end
         end
