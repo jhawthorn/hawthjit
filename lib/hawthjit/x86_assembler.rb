@@ -189,7 +189,6 @@ module HawthJit
         value_out = out(insn, 0)
         overflow_out = out(insn, 1)
 
-        p(overflow_out:, cc:)
         emit_set_cc(overflow_out, cc) do
           asm.mov(value_out, input(insn, 0))
           asm.emit(name.to_s, value_out, input(insn, 1))
