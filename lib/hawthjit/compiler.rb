@@ -25,6 +25,8 @@ module HawthJit
           ci = CallInfo.new cd.ci
           cc = CallCache.new cd.cc
           [ci, cc]
+        when "OFFSET"
+          [raw_value].pack("Q").unpack("q")[0]
         else
           raw_value
         end
@@ -307,6 +309,16 @@ module HawthJit
       next_insn   = blocks.fetch(insn.pos + insn.len)
 
       asm.br_cond cond, next_insn, target_insn
+    end
+
+    def compile_branchif(insn)
+      val = pop_stack
+      cond = asm.rtest(val)
+
+      target_insn = blocks.fetch(insn.pos + insn.len + insn[:dst])
+      next_insn   = blocks.fetch(insn.pos + insn.len)
+
+      asm.br_cond cond, target_insn, next_insn
     end
 
     def compile_jump(insn)

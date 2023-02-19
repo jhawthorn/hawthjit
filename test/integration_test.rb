@@ -118,6 +118,22 @@ class IntegrationTest < HawthJitTest
     assert_equal 0, result[:stats][:side_exits] unless no_jit?
   end
 
+  def test_while_loop
+    result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
+      def foo x
+        while x < 5
+          x += 1
+        end
+        x
+      end
+
+      foo(0)
+      foo(0)
+    RUBY
+    assert_equal 5, result[:ret]
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
+  end
+
   def test_addition_in_loop
     result = run_jit(<<~RUBY, call_threshold: 2)
       x = 0
