@@ -1,4 +1,4 @@
-# time ruby -Ilib --mjit=pause examples/fib.rb
+# time ruby -Ilib --mjit=pause examples/loop_addition.rb
 
 begin
   require "hawthjit"
