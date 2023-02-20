@@ -127,6 +127,45 @@ class PassTest < HawthJitTest
     ASM
   end
 
+  def test_removes_unnecessary_updates_with_loop
+    block_a = ir.new_block("a")
+    block_b = ir.new_block("b")
+    block_c = ir.new_block("c")
+
+    x = asm.assign(1)
+    asm.br block_a
+
+    block_a.asm do |asm|
+      asm.update_sp
+
+      asm.br_cond x, block_b, block_c
+    end
+
+    block_b.asm do |asm|
+      asm.br_cond x, block_a, block_c
+    end
+
+    block_c.asm do |asm|
+      asm.jit_return 0
+    end
+
+    run_passes
+
+    assert_asm <<~ASM
+      entry:
+        br a
+
+      a:
+        br_cond 1 b c
+
+      b:
+        br_cond 1 a c
+
+      c:
+        jit_return 0
+    ASM
+  end
+
   def test_redundant_multiply
     # x * x + x * x
     x = ir.build_output
