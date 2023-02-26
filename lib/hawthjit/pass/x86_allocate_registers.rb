@@ -1,7 +1,8 @@
 module HawthJit
   class Pass
     class X86AllocateRegisters < Pass
-      GP_REGS = [:rdx, :rsi, :rdi, :r8, :r9, :r10, :r11]
+      GP_REGS = [:rdx, :rsi, :rdi, :rcx, :r8, :r9, :r10]
+      C_ARG_REGS = %i[rdi rsi rdx rcx r8 r9]
 
       attr_reader :all_liveness, :assigns
 
@@ -37,6 +38,13 @@ module HawthJit
           end
         end
 
+        # Move all parameter reads to the entrypoint
+        params = output_ir.blocks.flat_map(&:insns).grep(IR::PARAM)
+        output_ir.blocks.each do |block|
+          block.insns.reject! { IR::PARAM === _1 }
+        end
+        output_ir.entry.insns.unshift(*params)
+
         # Visit each block to determine which variables are used between blocks
         to_visit = Set.new(blocks)
         while block = to_visit.first
@@ -63,6 +71,12 @@ module HawthJit
         @available = GP_REGS.dup
         @assigns = {}
 
+        # First assign params their matching reg
+        # Assumes that C_ARG_REGS is a subset of GP_REGS
+        params.each do |param|
+          @assigns[param.output] = C_ARG_REGS[param.input]
+        end
+
         @all_liveness = {}
         blocks.each do |block|
           @all_liveness.update(liveness_for(block)) do |_, a, b|
@@ -71,6 +85,8 @@ module HawthJit
         end
 
         @all_liveness.each do |var, liveness|
+          next if @assigns.key?(var)
+
           if liveness.size == 2
             insn0, insn1 = liveness.covered_instructions
             eflag = eflags_output(insn0)

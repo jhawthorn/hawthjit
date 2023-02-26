@@ -23,6 +23,27 @@ class AssemblerTest < HawthJitTest
     EXPECTED
   end
 
+  def test_param
+    a = asm.param(0)
+    b = asm.param(1)
+    x = asm.add(a, b)
+    asm.ret b
+
+    _code, disasm = compile(ir)
+
+    assert_equal disasm, <<~EXPECTED
+      L0:
+      # v1 = param 0
+      # v2 = param 1
+      # v3 = add v1 v2
+      mov rdx, rdi
+      add rdx, rsi
+      # ret v2
+      mov rax, rsi
+      ret
+    EXPECTED
+  end
+
   def test_phi
     block_a = ir.new_block("a")
     block_b = ir.new_block("b")

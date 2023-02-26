@@ -8,8 +8,8 @@ module HawthJit
     CFP = X86::REGISTERS[:r13]
     EC = X86::REGISTERS[:r12]
 
-    SCRATCH_REGS = [:rax, :rcx]
-    GP_REGS = [:rdx, :rsi, :rdi, :r8, :r9, :r10, :r11]
+    SCRATCH_REGS = [:rax, :r11]
+    GP_REGS = [:rdx, :rsi, :rdi, :rcx, :r8, :r9, :r10]
     C_ARG_REGS = %i[rdi rsi rdx rcx r8 r9]
     CALLER_SAVE = %i[rax rcx rdx rdi rsi rsp r8 r9 r10 r11]
     CALLEE_SAVE = %i[rbx rbp r12 r13 r14 r15]
@@ -305,6 +305,14 @@ module HawthJit
       asm.mov(out(insn), input(insn))
     end
 
+    def ir_param(insn)
+      if out(insn) == C_ARG_REGS[input(insn)]
+        # good
+      else
+        raise "wrong reg assigned to param"
+      end
+    end
+
     def self.cmp_cc(op)
       case op
       when :eq then "e"  # equal
@@ -520,6 +528,11 @@ module HawthJit
     def ir_jit_return(insn)
       jit_suffix
 
+      asm.mov :rax, input(insn)
+      asm.ret
+    end
+
+    def ir_ret(insn)
       asm.mov :rax, input(insn)
       asm.ret
     end

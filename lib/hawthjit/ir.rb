@@ -78,7 +78,7 @@ module HawthJit
 
       def branch_or_return?
         case name
-        when :br, :br_cond, :jit_return
+        when :br, :br_cond, :jit_return, :ret
           true
         else
           false
@@ -230,6 +230,7 @@ module HawthJit
     define :comment, 1 => 0
     define :jit_prelude
     define :jit_return, 1 => 0
+    define :ret, 1 => 0
     define :side_exit, 1 => 0
     define :breakpoint
     define :bind, 1
@@ -237,6 +238,7 @@ module HawthJit
     define :br_cond, 3
     define :assign, 1 => 1
     define :phi, :any => 1
+    define :param, 1 => 1
 
     define :rbool, 1 => 1
     define :rtest, 1 => 1
