@@ -298,10 +298,11 @@ module HawthJit
       @last_output = other.last_output
     end
 
-    def new_block(name)
-      block = Block.new(self, name)
-      @blocks << block
-      block
+    def new_block(name, &block)
+      bb = Block.new(self, name)
+      @blocks << bb
+      bb.asm(&block) if block
+      bb
     end
 
     def block(ref)

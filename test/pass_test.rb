@@ -104,14 +104,14 @@ class PassTest < HawthJitTest
       asm.jit_return asm.add(y, y)
     end
 
-    cond = asm.add(1, 2)
+    cond = ir.build_output
     asm.br_cond cond, block_a, block_b
 
     run_passes
 
     assert_asm <<~ASM
       entry:
-        br_cond 3 a b
+        br_cond v4 a b
 
       a:
         vm_push 3
@@ -127,12 +127,31 @@ class PassTest < HawthJitTest
     ASM
   end
 
+  def test_simplifies_unconditional_br_cond
+    block_a = ir.new_block("a") do |asm|
+      asm.jit_return 123
+    end
+    block_b = ir.new_block("b") do |asm|
+      asm.jit_return 456
+    end
+
+    _v, o = asm.add_with_overflow(1, 1)
+    asm.br_cond(o, block_a, block_b)
+
+    run_passes
+
+    assert_asm <<~ASM
+      entry:
+        jit_return 456
+    ASM
+  end
+
   def test_removes_unnecessary_updates_with_loop
     block_a = ir.new_block("a")
     block_b = ir.new_block("b")
     block_c = ir.new_block("c")
 
-    x = asm.assign(1)
+    x = ir.build_output
     asm.br block_a
 
     block_a.asm do |asm|
@@ -156,10 +175,10 @@ class PassTest < HawthJitTest
         br a
 
       a:
-        br_cond 1 b c
+        br_cond v1 b c
 
       b:
-        br_cond 1 a c
+        br_cond v1 a c
 
       c:
         jit_return 0

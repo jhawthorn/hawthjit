@@ -13,6 +13,7 @@ module HawthJit
     require "hawthjit/pass/x86_allocate_registers"
 
     PASSES = [
+      Pass::Simplify,
       Pass::CombineBlocks,
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,

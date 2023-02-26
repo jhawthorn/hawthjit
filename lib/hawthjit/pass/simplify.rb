@@ -30,6 +30,7 @@ module HawthJit
                 end
               end
 
+              # phi x b1 x b2 => assign x
               if insn.name == :phi &&
                   (insn.inputs.each_slice(2).map(&:first).uniq.size == 1)
                 insns[idx] = IR::ASSIGN.new(insn.outputs, [insn.inputs[0]])
@@ -37,9 +38,17 @@ module HawthJit
                 again = true
               end
 
+              # br_cond (0|1) target1 target2 => br target?
+              if insn.name == :br_cond && Integer === insn.input(0)
+                target = insn.input(insn.input(0) == 0 ? 2 : 1)
+                insns[idx] = IR::BR.new([], [target])
+
+                again = true
+              end
+
+              # rtest(rbool(x)) => x
               if insn.name == :rtest &&
                   (source_insn = sources[insn.input])&.name == :rbool
-                # rtest(rbool(x)) == x
                 insns[idx] = IR::ASSIGN.new(insn.outputs, source_insn.inputs)
 
                 again = true
