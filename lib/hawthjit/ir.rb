@@ -23,6 +23,19 @@ module HawthJit
         (inputs + inputs.grep(StackMap).flat_map(&:stack_values)).grep(IR::OutOpnd)
       end
 
+      def replace_inputs!
+        inputs.map! do |input|
+          if StackMap === input
+            StackMap.new(
+              input.pc,
+              input.stack_values.map { yield _1 }
+            )
+          else
+            yield input
+          end
+        end
+      end
+
       def output
         if outputs.size != 1
           raise "output called on instruction with #{outputs.size} outputs"
@@ -260,6 +273,8 @@ module HawthJit
     define :vm_push, 1 => 0
     define :vm_pop, 0 => 1
     define :vm_stack_topn, 1 => 1
+    define :vm_getlocal, 2 => 1
+    define :vm_setlocal, 3 => 0
 
     attr_accessor :last_output
     attr_accessor :blocks

@@ -9,12 +9,14 @@ module HawthJit
     require "hawthjit/pass/flatten_stack_operations"
     require "hawthjit/pass/simplify"
     require "hawthjit/pass/common_subexpression"
+    require "hawthjit/pass/vm_lower"
     require "hawthjit/pass/x86_allocate_registers"
 
     PASSES = [
       Pass::CombineBlocks,
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
+      Pass::VMLower,
       Pass::Simplify,
       Pass::CommonSubexpression,
       Pass::Simplify,

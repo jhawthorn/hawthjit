@@ -21,7 +21,7 @@ module HawthJit
           output_ir.blocks.each do |block|
             insns = block.insns
             insns.each_with_index do |insn, idx|
-              insn.inputs.map! do |input|
+              insn.replace_inputs! do |input|
                 if (source_insn = sources[input]) && source_insn.name == :assign
                   again = true
                   source_insn.input

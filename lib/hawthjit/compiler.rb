@@ -213,10 +213,11 @@ module HawthJit
     end
 
     def compile_getlocal_generic(idx, level)
-      local_offset = -idx * 8
+      #local_offset = -idx * 8
 
-      ep = compile_get_ep(level)
-      val = asm.load(ep, local_offset)
+      #ep = compile_get_ep(level)
+      #val = asm.load(ep, local_offset)
+      val = asm.vm_getlocal(idx, level)
 
       push_stack(val)
     end
