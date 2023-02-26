@@ -41,10 +41,12 @@ module HawthJit
 
               to_remove << remove_idx if remove_idx
 
-              block.insns[idx] = [
-                IR::ASSIGN.new(insn.outputs, [var]),
-                (IR::VM_POP.new([], []) unless remove_idx)
-              ]
+              unless insn.outputs.empty?
+                block.insns[idx] = [
+                  (IR::ASSIGN.new(insn.outputs, [var])),
+                  (IR::VM_POP.new([], []) unless remove_idx)
+                ].compact
+              end
 
               current_sp -= 1
               insn.props[:sp] = current_sp
