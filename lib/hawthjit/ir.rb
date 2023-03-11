@@ -94,6 +94,14 @@ module HawthJit
         @stack_values = stack_values
       end
 
+      def hash
+        [@pc, @stack_values].hash
+      end
+
+      def eql?(other)
+        @pc == other.pc && @stack_values.eql?(other.stack_values)
+      end
+
       def to_s
         "<StackMap %#x [%s]>" % [pc, stack_values.map(&:to_s).join(", ")]
       end
