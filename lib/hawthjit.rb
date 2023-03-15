@@ -3,18 +3,26 @@ require "asmjit"
 require "benchmark"
 
 module HawthJit
-  if !RubyVM::MJIT.enabled?
-    raise "MJIT isn't inabled. Ruby must be run with --mjit=pause"
+  if defined?(RubyVM::RJIT)
+    ruby_jit_name = "RJIT"
+    ruby_jit = RubyVM::RJIT
+  else
+    ruby_jit_name = "MJIT"
+    ruby_jit = RubyVM::MJIT
+  end
+
+  if !ruby_jit.enabled?
+    raise "#{ruby_jit_name} isn't inabled. Ruby must be run with --#{ruby_jit_name.downcase}=pause"
   end
 
   begin
-    C = RubyVM::MJIT.const_get(:C)
+    C = ruby_jit.const_get(:C)
   rescue NameError
-    raise "MJIT doesn't define a 'C' module. HawthJit requires Ruby trunk?"
+    raise "#{ruby_jit_name} doesn't define a 'C' module. HawthJit requires Ruby >= 3.2"
   end
 
-  CPointer = RubyVM::MJIT.const_get(:CPointer)
-  CType = RubyVM::MJIT.const_get(:CType)
+  CPointer = ruby_jit.const_get(:CPointer)
+  CType = ruby_jit.const_get(:CType)
 
   Qtrue = Fiddle.dlwrap(true)
   Qfalse = Fiddle.dlwrap(false)
@@ -68,22 +76,40 @@ module HawthJit
   def self.enable(print_stats: true, only: nil)
     @allowlist = only && only.map(&:to_s)
 
-    RubyVM::MJIT.instance_eval do
-      def compile(iseq_ptr)
-        ptr = HawthJit.compile(iseq_ptr)
-        ptr || 0
+    if defined?(RubyVM::RJIT)
+      RubyVM::RJIT::Compiler.class_eval do
+        def compile(iseq_ptr, _cfp)
+          ptr = HawthJit.compile(iseq_ptr)
+          iseq_ptr.body.jit_func = ptr || 0
+        end
       end
+      RubyVM::RJIT.resume
+    else
+      RubyVM::MJIT.instance_eval do
+        def compile(iseq_ptr)
+          ptr = HawthJit.compile(iseq_ptr)
+          ptr || 0
+        end
+      end
+      RubyVM::MJIT.resume
     end
-    RubyVM::MJIT.resume
 
     if print_stats
       at_exit {
-        RubyVM::MJIT.instance_eval do
-          def compile(iseq_ptr)
-            0
+        if defined?(RubyVM::RJIT)
+          RubyVM::RJIT.instance_eval do
+            def compile(iseq_ptr)
+              iseq_ptr.body.jit_func = 0
+            end
           end
+        else
+          RubyVM::MJIT.instance_eval do
+            def compile(iseq_ptr)
+              0
+            end
+          end
+          RubyVM::MJIT.pause # doesn't work :(
         end
-        RubyVM::MJIT.pause # doesn't work :(
         HawthJit::STATS.print_stats
       }
     end

@@ -12,7 +12,11 @@ module HawthJit
             if CPointer::Pointer > type
               8
             elsif CPointer::Struct > type
-              type.sizeof
+              if type.respond_to?(:sizeof)
+                type.sizeof
+              else
+                type.size
+              end
             elsif CPointer::Immediate > type
               type.size
             else
@@ -24,7 +28,13 @@ module HawthJit
       Class.new(AsmStruct) do
         define_singleton_method(:members) { members }
         define_method(:members) { members }
-        define_singleton_method(:sizeof) { struct.sizeof }
+        define_singleton_method(:sizeof) {
+          if struct.respond_to?(:sizeof)
+            struct.sizeof
+          else
+            struct.size
+          end
+        }
       end
     end
 

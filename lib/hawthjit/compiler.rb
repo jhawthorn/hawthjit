@@ -130,7 +130,11 @@ module HawthJit
       end
     end
 
-    INSNS = RubyVM::MJIT.const_get(:INSNS)
+    if defined?(RubyVM::RJIT)
+      INSNS = RubyVM::RJIT.const_get(:INSNS)
+    else
+      INSNS = RubyVM::MJIT.const_get(:INSNS)
+    end
 
     attr_reader :iseq
     alias iseq_ptr iseq

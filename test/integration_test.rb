@@ -176,10 +176,17 @@ class IntegrationTest < HawthJitTest
       h[:stats] = HawthJit::STATS.to_h unless #{no_jit?}
       IO.open(3).write Marshal.dump(h)
     RUBY
+
     args = []
     unless no_jit?
-      args.concat %W[-I#{lib_path} --mjit=pause --mjit-wait --mjit-verbose]
-      args << "--mjit-call-threshold=#{call_threshold * 2}"
+      args.concat %W[-I#{lib_path}]
+      if defined?(RubyVM::RJIT)
+        args.concat %W[--rjit-pause]
+        args << "--rjit-call-threshold=#{call_threshold}"
+      else
+        args.concat %W[--mjit=pause --mjit-wait --mjit-verbose]
+        args << "--mjit-call-threshold=#{call_threshold * 2}"
+      end
     end
     args << "-e" << code
 
@@ -207,7 +214,9 @@ class IntegrationTest < HawthJitTest
 
     stats = Marshal.load(stats)
 
-    assert_includes out, "Successful MJIT finish" unless no_jit?
+    unless defined?(RubyVM::RJIT)
+      assert_includes out, "Successful MJIT finish" unless no_jit?
+    end
 
     assert stats[:stats][:compile_success] > 0, "nothing was compiled" unless no_jit?
 

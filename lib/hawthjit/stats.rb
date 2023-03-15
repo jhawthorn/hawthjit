@@ -41,7 +41,7 @@ module HawthJit
     end
 
     def print_stats
-      pp to_h
+      p to_h
     end
   end
 
