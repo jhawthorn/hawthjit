@@ -4,6 +4,25 @@ module HawthJit
       def process
         output_ir = @input_ir.dup
 
+        successor_update_required = Hash.new do |h, key|
+          h[key] = DataFlow.backward(
+            @input_ir,
+            init: false,
+            transfer: -> (block, succ) do
+              next_significant_insn = block.insns.detect do |insn|
+                insn.name == key || requires_update?(insn)
+              end
+
+              if next_significant_insn
+                requires_update?(next_significant_insn)
+              else
+                succ
+              end
+            end,
+            merge: -> (needed) { needed.any? }
+          ).out
+        end
+
         output_ir.blocks.each do |block|
           to_remove = Set.new
           pending = {}
@@ -24,7 +43,7 @@ module HawthJit
 
           # Find whether the pending insns at end of block can be removed
           pending.each do |key, idx|
-            can_remove = !successors_require_update?(block.ref, key)
+            can_remove = !successor_update_required[key][block.ref]
 
             if can_remove
               to_remove << idx
@@ -37,30 +56,6 @@ module HawthJit
         end
 
         output_ir
-      end
-
-      def successors_require_update?(blockref, key, seen: [blockref])
-        block = @input_ir.block(blockref)
-        succs = block.successors
-        succs.any? do |succ|
-          next_significant_insn = succ.insns.detect do |insn|
-            insn.name == key || requires_update?(insn)
-          end
-
-          if next_significant_insn
-            next true if requires_update?(next_significant_insn)
-            next false if next_significant_insn.name == key
-            raise
-          end
-
-          if seen.include?(succ.ref)
-            # We're in a loop with no required updates
-            false
-          else
-            # Continue DFS on successors
-            successors_require_update?(succ.ref, key, seen: seen | [succ.ref])
-          end
-        end
       end
 
       def is_update?(insn)
