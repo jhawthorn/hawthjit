@@ -160,7 +160,7 @@ module HawthJit
         insn = INSNS.fetch(C.rb_vm_insn_decode(body.iseq_encoded[pos]))
         #sp_inc = C.mjit_call_attribute_sp_inc(insn.bin, body.iseq_encoded + pos + 1)
         insn_opnds = insn.respond_to?(:operands) ? insn.operands : insn.opes
-        operands = insn.operands.map.with_index do |type, i|
+        operands = insn_opnds.map.with_index do |type, i|
           Operand.new(
             type,
             body.iseq_encoded[pos + i + 1]
