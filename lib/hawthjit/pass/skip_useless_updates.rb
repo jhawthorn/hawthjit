@@ -5,18 +5,16 @@ module HawthJit
         output_ir = @input_ir.dup
 
         successor_update_required = Hash.new do |h, key|
-          h[key] = DataFlow.backward(
+          h[key] = DataFlow::ByInsn.backward(
             @input_ir,
             init: false,
-            transfer: -> (block, succ) do
-              next_significant_insn = block.insns.detect do |insn|
-                insn.name == key || requires_update?(insn)
-              end
-
-              if next_significant_insn
-                requires_update?(next_significant_insn)
+            transfer: -> (value, block, insn, idx) do
+              if key == insn.name
+                false
+              elsif requires_update?(insn)
+                true
               else
-                succ
+                value
               end
             end,
             merge: -> (needed) { needed.any? }

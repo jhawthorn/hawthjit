@@ -6,19 +6,21 @@ module HawthJit
         direction: :forward,
         init: -> () {  },
         merge:,
-        transfer: -> (x) { x }
+        transfer: -> (v, *) { v }
       )
         @ir = ir
         @worklist = Set.new
         @worklist += ir.blocks
 
         @merge = merge
-        @transfer = transfer
+        @transfer_proc = transfer
         init = -> () { init } unless init.respond_to?(:call)
 
         @in = {}
         @out = {}
         @input_map = {}
+
+        @direction = direction
 
         if direction == :forward
           @in[ir.entry.ref] = init.call
@@ -37,6 +39,10 @@ module HawthJit
         end
       end
 
+      def transfer_block(block)
+        @transfer_proc.call(@in[block.ref], block)
+      end
+
       def process
         until @worklist.empty?
           block = @worklist.first
@@ -45,7 +51,7 @@ module HawthJit
           input_blocks = @input_map[block.ref]
           inputs = input_blocks.map { @out[_1] }
           @in[block.ref] = @merge.call(inputs)
-          output = @transfer.call(block, @in[block.ref])
+          output = transfer_block(block)
 
           if output != @out[block.ref]
             @out[block.ref] = output
@@ -53,6 +59,25 @@ module HawthJit
               @ir.block(ref)
             }
           end
+        end
+      end
+
+      class ByInsn < DataFlow
+        def transfer_block(block)
+          initial = @in[block.ref]
+          value = initial
+
+          ordered_insns = block.insns
+          ordered_insns = ordered_insns.reverse if @direction == :backward
+
+          block.insns.each_with_index do |insn, idx|
+            value = transfer_insn(value, block, insn, idx)
+          end
+          value
+        end
+
+        def transfer_insn(value, block, insn, idx)
+          @transfer_proc.call(value, block, insn, idx)
         end
       end
 
