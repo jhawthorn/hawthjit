@@ -67,10 +67,7 @@ module HawthJit
           initial = @in[block.ref]
           value = initial
 
-          ordered_insns = block.insns
-          ordered_insns = ordered_insns.reverse if @direction == :backward
-
-          block.insns.each_with_index do |insn, idx|
+          each_insn(block)do |insn, idx|
             value = transfer_insn(value, block, insn, idx)
           end
           value
@@ -78,6 +75,37 @@ module HawthJit
 
         def transfer_insn(value, block, insn, idx)
           @transfer_proc.call(value, block, insn, idx)
+        end
+
+        def remove_where!
+          @ir.blocks.each do |block|
+            value = @in[block.ref]
+            idx_to_remove = []
+            each_insn(block) do |insn, idx|
+              should_remove = yield(value, block, insn, idx)
+              #p(idx:, insn:, value:, should_remove:)
+              value = transfer_insn(value, block, insn, idx)
+              block.insns.delete_at(idx) if should_remove
+            end
+          end
+          @ir
+        end
+
+        private
+        def each_insn(block)
+          case @direction
+          when :backward
+            last = block.insns.size
+            block.insns.reverse.each_with_index do |insn, idx|
+              yield insn, last - idx - 1
+            end
+          when :forward
+            block.insns.each_with_index do |insn, idx|
+              yield insn, idx
+            end
+          else
+            raise
+          end
         end
       end
 
