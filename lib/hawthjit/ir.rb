@@ -125,6 +125,7 @@ module HawthJit
       def eql?(other)
         other.class == BlockRef && other.name == name
       end
+      alias == eql?
     end
 
     class OutOpnd

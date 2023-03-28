@@ -1,6 +1,9 @@
 module HawthJit
   class Pass
     class FlattenStackOperations < Pass
+      TempPhi = Data.define(:merge_ref, :sources)
+      TempPush = Data.define(:block, :value)
+
       def process
         output_ir = @input_ir.dup
 
@@ -8,111 +11,126 @@ module HawthJit
           output_ir.entry => 0
         }
 
-        stack_variables_at_start = {}
-        stack_variables_at_end = {}
+        flow = DataFlow.forward(
+          output_ir,
+          init: [],
+          transfer: -> (value, block) do
+            stack = value.dup
+            block.insns.each do |insn|
+              case insn.name
+              when :vm_push
+                stack << TempPush.new(block.ref, insn.input)
+              when :vm_pop
+                stack.pop
+              end
+            end
+            [block.ref, stack]
+          end,
+          merge: -> (incoming, block) {
+            blocks = incoming.map(&:first)
+            stacks = incoming.map(&:last)
 
-        # goal: wherever possible remove vm_push/vm_pop pairs
-        # when that isn't possible, use the originating variable instead of the
-        # variable from the vm_pop to reduce data dependencies.
+            if stacks.size == 1
+              next stacks[0]
+            end
+
+            stack = stacks[0].zip(*stacks[1..])
+            stack.map! do |values|
+              next values[0] if values.uniq.size == 1
+
+              TempPhi.new(block.ref, values.map.with_index { |v, idx| [v, blocks[idx]] })
+            end
+
+            stack
+          }
+        )
+
+        phis = flow.in.values.flatten.grep(TempPhi).uniq
+        phis_by_merge = phis.group_by(&:merge_ref)
+        phis_to_var = phis.map { [_1, output_ir.build_output] }.to_h
+
+        temp_to_var = -> (temp) {
+          case temp
+          when TempPhi
+            phis_to_var[temp]
+          when TempPush
+            temp_to_var[temp.value]
+          else
+            temp
+          end
+        }
 
         output_ir.blocks.each do |block|
-          sp_at_block_start = sp_at_block.fetch(block)
-          current_sp = sp_at_block_start
+          # insert phis
+          block.insns.unshift *phis_by_merge.fetch(block.ref, []).map { |phi|
+            output = phis_to_var[phi]
+            IR::PHI.new([output], phi.sources.flat_map { |(value, block)|
+              [temp_to_var[value], block]
+            })
+          }
+        end
 
-          stack_variables = current_sp.times.map do
-            output_ir.build_output
-          end
-          stack_variables_at_start[block] = stack_variables.dup
-
-          push_idx = []
-          to_remove = []
+        # Replace all vm_pop, vm_stack_topn, and capture_stack_map with
+        # references to the originally pushed variable or constant.
+        output_ir.blocks.each do |block|
+          stack = flow.in[block.ref]
+          stack.map!{ temp_to_var[_1] }
 
           block.insns.each_with_index do |insn, idx|
+            current_sp = stack.length
             case insn.name
             when :vm_push
-              push_idx << idx
-              stack_variables << insn.input
-
               insn.props[:sp] = current_sp
-              current_sp += 1
+              stack << insn.input
             when :vm_pop
-              remove_idx = push_idx.pop
-              var = stack_variables.pop or raise "attempt to pop empty stack"
-
-              to_remove << remove_idx if remove_idx
-
+              value = stack.pop
               unless insn.outputs.empty?
                 block.insns[idx] = [
-                  (IR::ASSIGN.new(insn.outputs, [var])),
-                  (IR::VM_POP.new([], []) unless remove_idx)
+                  (IR::ASSIGN.new(insn.outputs, [value])),
+                  (IR::VM_POP.new([], []))
                 ].compact
               end
-
-              current_sp -= 1
               insn.props[:sp] = current_sp
             when :vm_stack_topn
               n = insn.input
-              var = stack_variables[-n-1] or raise "bad value for topn"
-
-              block.insns[idx] = IR::ASSIGN.new(insn.outputs, [var])
-            when :capture_stack_map
-              stack_map = IR::StackMap.new(
-                insn.inputs[0],
-                stack_variables.dup
-              )
-
-              block.insns[idx] = IR::ASSIGN.new(insn.outputs, [stack_map])
+              value = stack[-n-1] or raise "bad value for topn"
+              block.insns[idx] = IR::ASSIGN.new(insn.outputs, [value])
             when :update_sp
-              # May need stack operations for correct side exit
-              push_idx.clear
-
               insn.props[:sp] = current_sp
             when :push_frame
               insn.props[:sp] = current_sp
+            when :capture_stack_map
+              insn.props[:sp] = current_sp
+
+              stack_map = IR::StackMap.new(
+                insn.inputs[0],
+                stack.dup
+              )
+
+              block.insns[idx] = IR::ASSIGN.new(insn.outputs, [stack_map])
             end
           end
-
-          to_remove.compact.each do |idx|
-            block.insns[idx] = nil
-          end
-
           block.insns.flatten!
+        end
+
+        # remove elidable push/pop pairs
+        output_ir.blocks.each do |block|
+          stack = []
+          block.insns.each_with_index do |insn, idx|
+            case insn.name
+            when :vm_push
+              stack << idx
+            when :vm_pop
+              unless stack.empty?
+                prev_idx = stack.pop
+                block.insns[prev_idx] = nil
+                block.insns[idx] = nil
+              end
+            when :side_exit, :call_jit_func, :push_frame
+              stack.clear
+            end
+          end
           block.insns.compact!
-
-          stack_variables_at_end[block] = stack_variables
-
-          block.successors.each do |succ|
-            if existing = sp_at_block[succ]
-              raise "sp mismatch" unless existing == current_sp
-            end
-            sp_at_block[succ] = current_sp
-          end
-        end
-
-        phis = {}
-        stack_variables_at_end.each do |block, variables|
-          block.successors.each do |succ|
-            phis[succ] ||= {}
-            phis[succ][block] = variables
-          end
-        end
-
-        phis.each do |block, preds|
-          size = preds.values[0].size
-          next if size.zero?
-          new_phis = size.times.map do |i|
-            succ_var = stack_variables_at_start[block][i] || raise
-
-            phi_inputs = preds.flat_map do |pred, pred_vars|
-              pred_var = pred_vars[i] || raise
-
-              [pred_var, pred]
-            end
-
-            IR::PHI.new([succ_var], phi_inputs)
-          end
-
-          block.insns.unshift(*new_phis)
         end
 
         output_ir

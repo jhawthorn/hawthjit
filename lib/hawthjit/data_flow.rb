@@ -9,11 +9,11 @@ module HawthJit
     )
       @ir = ir
       @worklist = Set.new
-      @worklist += ir.blocks
+      @worklist += ir.blocks.map(&:ref)
 
       @merge = merge
       @transfer_proc = transfer
-      init = -> () { init } unless init.respond_to?(:call)
+      @init = -> () { init } unless init.respond_to?(:call)
 
       @in = {}
       @out = {}
@@ -21,20 +21,25 @@ module HawthJit
 
       @direction = direction
 
+      successors = {}
+      predecessors = ir.blocks.map { [_1.ref, []] }.to_h
+
+      @ir.blocks.each do |block|
+        successors[block.ref] = block.successor_refs
+        block.successor_refs.each do |succ_ref|
+          predecessors[succ_ref] << block.ref
+        end
+      end
+
+      @iterations = 0
+
       if direction == :forward
-        @in[ir.entry.ref] = init.call
-        @ir.blocks.each do |block|
-          @input_map[block.ref] = block.successor_refs
-        end
+        @input_map = predecessors
+        @output_map = successors
       else
-        # FIXME: need to set init for terminal blocks
-        @input_map = ir.blocks.map { [_1.ref, []] }.to_h
-        @ir.blocks.each do |block|
-          block.successor_refs.each do |succ_ref|
-            #@input_map[succ_ref] ||= []
-            @input_map[succ_ref] << block.ref
-          end
-        end
+        # FIXME: need to set init for terminal blocks ?
+        @input_map = successors
+        @output_map = predecessors
       end
     end
 
@@ -42,21 +47,44 @@ module HawthJit
       @transfer_proc.call(@in[block.ref], block)
     end
 
+    def do_merge(inputs, block)
+      if @merge.arity == 1
+        @merge.call(inputs)
+      else
+        @merge.call(inputs, block)
+      end
+    end
+
+    def increment_iterations!
+      @iterations += 1
+      if @iterations > @ir.blocks.size * 100
+        #pp("@worklist": @worklist)
+        #pp(inputs: @in.slice(*@worklist.to_a), outputs: @out.slice(*@worklist.to_a))
+        raise "too many iterations"
+      end
+    end
+
     def process
       until @worklist.empty?
-        block = @worklist.first
-        @worklist.delete(block)
+        increment_iterations!
+
+        block_ref = @worklist.first
+        @worklist.delete(block_ref)
+        block = @ir.block(block_ref)
 
         input_blocks = @input_map[block.ref]
-        inputs = input_blocks.map { @out[_1] }
-        @in[block.ref] = @merge.call(inputs)
+        inputs = input_blocks.map { @out[_1] }.compact
+        @in[block.ref] =
+          if inputs.empty?
+            @init.call()
+          else
+            do_merge(inputs, block)
+          end
         output = transfer_block(block)
 
         if output != @out[block.ref]
           @out[block.ref] = output
-          @worklist.merge input_blocks.map { |ref|
-            @ir.block(ref)
-          }
+          @worklist.merge @output_map[block.ref]
         end
       end
     end
