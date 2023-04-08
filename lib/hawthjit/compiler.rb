@@ -390,6 +390,14 @@ module HawthJit
     VM_ENV_FLAG_LOCAL     = 0x0002
     VM_FRAME_FLAG_CFRAME  = 0x0080
 
+    if Module === C
+      VM_METHOD_TYPE_ISEQ = C::VM_METHOD_TYPE_ISEQ
+      VM_METHOD_TYPE_CFUNC = C::VM_METHOD_TYPE_CFUNC
+    else
+      VM_METHOD_TYPE_ISEQ = C.VM_METHOD_TYPE_ISEQ
+      VM_METHOD_TYPE_CFUNC = C.VM_METHOD_TYPE_CFUNC
+    end
+
     def compile_opt_send_without_block(insn)
       ci, cc = insn[:cd]
 
@@ -402,9 +410,9 @@ module HawthJit
       cme = cc.cc.cme_
 
       method_type = cme.def.type
-      if method_type == C.VM_METHOD_TYPE_ISEQ
+      if method_type == VM_METHOD_TYPE_ISEQ
         method_type = :iseq
-      elsif method_type == C.VM_METHOD_TYPE_CFUNC
+      elsif method_type == VM_METHOD_TYPE_CFUNC
         method_type = :cfunc
       else
         raise CantCompile, "unsupported method type: #{method_type}"
