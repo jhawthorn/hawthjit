@@ -247,12 +247,16 @@ module HawthJit
       preserve_regs = insn.props[:preserve_regs]
       #preserve_regs.map! { @regs.fetch(_1) }
 
+      odd = preserve_regs.size.odd?
+
       preserve_regs.each do |reg|
         asm.push(reg)
       end
+      asm.sub(:rsp, 8) if odd
 
       yield
 
+      asm.add(:rsp, 8) if odd
       preserve_regs.reverse_each do |reg|
         asm.pop(reg)
       end
