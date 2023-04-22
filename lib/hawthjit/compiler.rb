@@ -476,6 +476,7 @@ module HawthJit
         # cfunc struct isn't defined by MJIT yet in Ruby 3.2 :(
         cfunc_func = Fiddle::Pointer.new(cme.def.body.to_i, 8).ptr.to_i
         cfunc_argc = Fiddle::Pointer.new(cme.def.body.to_i + 16, 4).ptr.to_i
+        cfunc_argc = [cfunc_argc].pack("L").unpack("l")[0]
 
         # only supporting exact argc for now
         raise CantCompile, "cfunc argc" unless cfunc_argc >= 0
