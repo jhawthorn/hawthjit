@@ -365,6 +365,11 @@ module HawthJit
     end
 
     def emit_br_cc(cc, label_if, label_else)
+      if @visited_blocks.include?(label_else) && @visited_blocks.include?(label_if)
+        # Swap order so that the not yet compiled block comes next
+        label_if, label_else, cc = label_else, label_if, invert_cc(cc)
+      end
+
       x86_label_if = x86_labels[label_if]
 
       asm.emit "j#{cc}", x86_label_if
