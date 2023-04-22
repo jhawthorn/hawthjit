@@ -187,6 +187,7 @@ module HawthJit
     def compile_entry
       @entry_block = @ir.entry
       with_block(@entry_block) do
+        asm.breakpoint if ENV["HAWTHJIT_BREAKPOINT"]
         asm.jit_prelude
         asm.br blocks.fetch(0)
       end
