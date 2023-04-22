@@ -262,16 +262,29 @@ module HawthJit
       end
     end
 
+    def reassign_regs(mapping)
+      mapping = mapping.dup
+      while !mapping.empty?
+        target, source = mapping.detect { |t, _| !mapping.value?(t) }
+        if !target
+           # we have to swap the regs using a temporary
+           binding.irb
+        end
+        asm.mov(target, source)
+        mapping.delete(target)
+      end
+    end
+
     def ir_c_call(insn)
       ptr = insn.inputs[0]
 
       preserve_regs(insn) do
-        # FIXME: this can clobber the regs in use :(
-        inputs(insn)[1..].each_with_index do |var, i|
-          reg = C_ARG_REGS[i] or raise("too many args")
+        mapping = inputs(insn)[1..].map.with_index do |var, i|
+          target_reg = C_ARG_REGS[i] or raise("too many args")
+          [target_reg, var]
+        end.to_h
 
-          asm.mov(reg, var)
-        end
+        reassign_regs(mapping)
 
         asm.call(ptr)
       end
