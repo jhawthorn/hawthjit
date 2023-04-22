@@ -308,6 +308,43 @@ module HawthJit
       push_stack val
     end
 
+    def compile_opt_aref(insn)
+      # FIXME: guard array
+
+      idx = pop_stack
+      recv = pop_stack
+
+      guard asm.test_fixnum(idx)
+
+      idx = fixnum_unwrap(idx)
+      val = asm.c_call(cfunc_addr("rb_ary_entry"), recv, idx)
+
+      push_stack val
+    end
+
+    def compile_opt_aset(insn)
+      # FIXME: guard array
+
+      value = pop_stack
+      idx = pop_stack
+      recv = pop_stack
+
+      guard asm.test_fixnum(idx)
+
+      idx = fixnum_unwrap(idx)
+      asm.c_call(cfunc_addr("rb_ary_store"), recv, idx, value)
+
+      push_stack value
+    end
+
+    def fixnum_unwrap(x)
+      asm.shr(x, 1)
+    end
+
+    def cfunc_addr(name)
+      Fiddle::Handle::DEFAULT[name]
+    end
+
     def compile_branchunless(insn)
       val = pop_stack
       cond = asm.rtest(val)
