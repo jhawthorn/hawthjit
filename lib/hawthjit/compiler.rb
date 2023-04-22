@@ -295,6 +295,18 @@ module HawthJit
       push_stack val
     end
 
+    def compile_dupn(insn)
+      n = insn[:n]
+      raise CantCompile unless n == 2
+
+      b = pop_stack
+      a = pop_stack
+      push_stack a
+      push_stack b
+      push_stack a
+      push_stack b
+    end
+
     def compile_opt_lt(insn)
       b = pop_stack
       a = pop_stack
