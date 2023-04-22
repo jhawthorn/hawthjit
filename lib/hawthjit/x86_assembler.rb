@@ -385,10 +385,9 @@ module HawthJit
       val = input(insn)
       output = out(insn)
 
-      asm.xor(:rax, :rax)
-      asm.test(val, ~Qnil)
-      asm.setnz(:al)
-      asm.mov(output, :rax)
+      emit_set_cc(output, "nz") do
+        asm.test(val, ~Qnil)
+      end
     end
 
     def ir_rbool(insn)
@@ -418,8 +417,7 @@ module HawthJit
     # Unconditional branch
     def ir_br(insn)
       label = input(insn)
-      x86_label = x86_labels[label]
-      asm.jmp x86_label
+      emit_direct_jump(label)
     end
 
     def ir_update_pc(insn)
