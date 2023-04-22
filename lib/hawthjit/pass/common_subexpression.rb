@@ -9,6 +9,7 @@ module HawthJit
 
           block.insns.each_with_index do |insn, idx|
             next if side_effect?(insn)
+            next if insn.name == :load # FIXME: need to check for memory side effects elsewhere
             next if insn.outputs.size == 0
 
             key = insn.inputs
