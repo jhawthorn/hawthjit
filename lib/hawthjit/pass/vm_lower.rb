@@ -17,6 +17,15 @@ module HawthJit
                 ep = compile_get_ep(asm, level)
                 val = asm.load(ep, local_offset)
               end + [IR::ASSIGN.new(insn.outputs, [val])]
+            elsif IR::VM_SETLOCAL === insn
+              idx, level, val = insn.inputs
+              assemble(output_ir) do |asm|
+                # FIXME: not sure this is right for level > 0
+                local_offset = -idx * 8
+
+                ep = compile_get_ep(asm, level)
+                asm.store(ep, local_offset, 8, val)
+              end
             else
               insn
             end
