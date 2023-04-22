@@ -501,7 +501,7 @@ module HawthJit
             asm.shr(a, 1),
             asm.sub(b, 1))
       guard_not overflow
-      asm.or(result, 1)
+      result = asm.or(result, 1)
 
       push_stack result
     end
