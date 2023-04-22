@@ -61,8 +61,8 @@ module HawthJit
       while block = @next_block || queue.shift
         block = @ir.block(block) if IR::BlockRef === block
 
-        next if @visited_blocks.include?(block)
-        @visited_blocks.add(block)
+        next if @visited_blocks.include?(block.ref)
+        @visited_blocks.add(block.ref)
 
         @next_block = nil
         compile_block(block)
