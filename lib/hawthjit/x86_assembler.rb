@@ -204,11 +204,15 @@ module HawthJit
 
     def mov64(dest, value)
       # FIXME: double check this range, can probably support negative
-      if (0..(2**31)).cover?(value)
-        asm.mov(dest, value)
+      if Integer === value
+        if (0..(2**31)).cover?(value)
+          asm.mov(dest, value)
+        else
+          asm.mov(:rax, value)
+          asm.mov(dest, :rax)
+        end
       else
-        asm.mov(:rax, value)
-        asm.mov(dest, :rax)
+        asm.mov(dest, value)
       end
     end
 
@@ -462,7 +466,7 @@ module HawthJit
     end
 
     def ir_vm_push(insn)
-      asm.mov sp_ptr(insn.props[:sp]), input(insn)
+      mov64 sp_ptr(insn.props[:sp]), input(insn)
     end
 
     def ir_vm_pop(insn)
