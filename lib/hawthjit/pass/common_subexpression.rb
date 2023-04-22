@@ -12,7 +12,7 @@ module HawthJit
             next if insn.name == :load # FIXME: need to check for memory side effects elsewhere
             next if insn.outputs.size == 0
 
-            key = insn.inputs
+            key = [insn.name, *insn.inputs]
             if existing = prev[key]
               block.insns[idx] =
                 insn.outputs.zip(existing).map do |new_output, old_output|
