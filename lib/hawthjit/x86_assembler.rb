@@ -272,7 +272,11 @@ module HawthJit
         target, source = mapping.detect { |t, _| !mapping.value?(t) }
         if !target
            # we have to swap the regs using a temporary
-           binding.irb
+           raise if mapping.value?(:rax)
+           target, source = mapping.first
+
+           asm.mov(:rax, target)
+           mapping[mapping.key(target)] = :rax
         end
         asm.mov(target, source)
         mapping.delete(target)
