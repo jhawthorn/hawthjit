@@ -267,7 +267,7 @@ module HawthJit
     end
 
     def reassign_regs(mapping)
-      mapping = mapping.dup
+      mapping = mapping.reject { |k, v| k == v }
       while !mapping.empty?
         target, source = mapping.detect { |t, _| !mapping.value?(t) }
         if !target
