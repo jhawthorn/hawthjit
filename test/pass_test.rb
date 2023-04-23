@@ -203,6 +203,30 @@ class PassTest < HawthJitTest
     ASM
   end
 
+  def test_common_subexpression
+    # Example from https://www.pypy.org/posts/2022/07/toy-optimizer.html
+    # a * (b + 17) + (b + 17)
+    v1 = asm.param(0)
+    v2 = asm.param(1)
+    v3 = asm.add(v2, 17)
+    v4 = asm.imul(v1, v3)
+    v5 = asm.add(v2, 17) # should be eliminated
+    v6 = asm.add(v4, v5)
+    asm.jit_return v6
+
+    run_passes
+
+    assert_asm <<~ASM
+      entry:
+        v1 = param 0
+        v2 = param 1
+        v3 = add v2 17
+        v4 = imul v1 v3
+        v6 = add v4 v3
+        jit_return v6
+    ASM
+  end
+
   def assert_asm(asm, ir: @ir)
     assert_equal asm, ir.to_s
   end
