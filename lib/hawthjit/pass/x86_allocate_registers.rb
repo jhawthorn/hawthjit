@@ -105,7 +105,10 @@ module HawthJit
             end
           end
 
-          raise "register spill" unless reg
+          unless reg
+            intersects = @all_liveness.select { |_, other_liveness| liveness.intersects?(other_liveness) }
+            raise "register spill for #{var} due to intersect with #{intersects.keys}"
+          end
 
           @assigns[var] = reg
         end
