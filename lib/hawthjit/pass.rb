@@ -7,6 +7,7 @@ module HawthJit
     require "hawthjit/pass/combine_blocks"
     require "hawthjit/pass/skip_useless_updates"
     require "hawthjit/pass/flatten_stack_operations"
+    require "hawthjit/pass/flatten_locals"
     require "hawthjit/pass/simplify"
     require "hawthjit/pass/common_subexpression"
     require "hawthjit/pass/vm_lower"
@@ -17,6 +18,7 @@ module HawthJit
       Pass::CombineBlocks,
       Pass::SkipUselessUpdates,
       Pass::FlattenStackOperations,
+      Pass::FlattenLocals,
       Pass::VMLower,
       Pass::Simplify,
       Pass::CommonSubexpression,
