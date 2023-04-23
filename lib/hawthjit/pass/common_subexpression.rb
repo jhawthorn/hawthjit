@@ -5,12 +5,19 @@ module HawthJit
         output_ir = @input_ir.dup
 
         output_ir.blocks.each do |block|
-          prev = {}
+          prev_var = {}
+          prev_mem = {}
 
           block.insns.each_with_index do |insn, idx|
+            if insn.name == :store
+              prev_mem.clear
+              next
+            end
+
             next if side_effect?(insn)
-            next if insn.name == :load # FIXME: need to check for memory side effects elsewhere
             next if insn.outputs.size == 0
+
+            prev = insn.name == :load ? prev_mem : prev_var
 
             key = [insn.name, *insn.inputs]
             if existing = prev[key]
