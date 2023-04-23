@@ -14,8 +14,6 @@ end
 
 num = 1000
 count = i = j = 0
-count2 = 0
-count3 = 0
 flags0 = Array.new(8192,1)
 k = 0
 num.times do
@@ -33,10 +31,7 @@ num.times do
         flags[j] = nil
       end
       count += 1
-      count3 += 1
     end
-    count2 += 1
   end
 end
-p(count:, count2:, count3:, i:, j:, k:)
 raise "bad result #{count} != 1616" unless count == 1616
