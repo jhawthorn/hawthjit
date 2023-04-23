@@ -10,6 +10,7 @@ module HawthJit
     require "hawthjit/pass/flatten_locals"
     require "hawthjit/pass/simplify"
     require "hawthjit/pass/common_subexpression"
+    require "hawthjit/pass/redundant_guards"
     require "hawthjit/pass/vm_lower"
     require "hawthjit/pass/x86_allocate_registers"
 
@@ -22,6 +23,8 @@ module HawthJit
       Pass::VMLower,
       Pass::Simplify,
       Pass::CommonSubexpression,
+      Pass::Simplify,
+      Pass::RedundantGuards,
       Pass::Simplify,
     ]
 

@@ -86,6 +86,19 @@ class IntegrationTest < HawthJitTest
     assert_equal 0, result[:stats][:side_exits] unless no_jit?
   end
 
+  def test_simple_redundancy
+    result = run_jit(<<~RUBY, call_threshold: 2)
+      def foo(a, b)
+        a * (b + 17) + (b + 17)
+      end
+      foo(1,2)
+      foo(1,2)
+    RUBY
+
+    assert_equal 38, result[:ret]
+    assert_equal 0, result[:stats][:side_exits] unless no_jit?
+  end
+
   def test_cfunc_call
     result = run_jit(<<~RUBY, call_threshold: 2, only: [:foo])
       def foo(x)
