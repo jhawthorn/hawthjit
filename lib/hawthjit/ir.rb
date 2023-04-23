@@ -345,6 +345,31 @@ module HawthJit
       @blocks.map(&:to_s).join("\n")
     end
 
+    def to_dot
+      s = +""
+      s << <<~DOT
+      strict digraph {
+        node [
+          fontname="monospace"
+          shape=rect
+          pencolor="#00000044"
+        ]
+      DOT
+      @blocks.each do |block|
+        s << <<~DOT
+          #{block.ref} [
+            label="l"
+            labeljust=l
+            label = #{block.to_s.dump.gsub("\\n", "\\l")}
+          ]
+        DOT
+        block.successors.each do |succ|
+          s << "#{block.ref} -> #{succ.ref}\n"
+        end
+      end
+      s << "}"
+    end
+
     def inspect
       s = +""
       s << "#<#{self.class}\n#{to_s}>"

@@ -594,6 +594,10 @@ module HawthJit
 
       ir = apply_passes(@ir)
 
+      if ENV["HAWTHJIT_DOT_DEBUG"]
+        File.write("ir.dot", ir.to_dot)
+      end
+
       code = ir.to_x86
 
       puts "=== ISEQ: #{label.inspect}@#{iseq_ptr}"
