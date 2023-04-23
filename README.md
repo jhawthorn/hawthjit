@@ -1,9 +1,13 @@
 # hawthjit
-An(other) experimental pure-Ruby JIT compiler.
+An(other?) experimental pure-Ruby toy JIT compiler.
 
 This is a pure Ruby JIT compiler for CRuby.
 It uses MJIT's experimental "custom compiler" override in order to plug into the VM as well as to read CRuby's internals.
-It only works on Ruby 3.2 and so far only with very simple tests.
+It only works on Ruby 3.2 and trunk and so far only with very simple tests.
+
+Currently it cheats in quite a few ways: it doesn't check for interrupts,
+doesn't always check classes where it should, and performs some optimizations
+which aren't completely safe.
 
 ## Goals
 * Fast on simple benchmarks
