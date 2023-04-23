@@ -66,4 +66,8 @@ module HawthJit
       def may_affect_locals?(insn)
         # FIXME: should detect whether locals could be modified by an external
         # source
-        false end end end end
+        false
+      end
+    end
+  end
+end
