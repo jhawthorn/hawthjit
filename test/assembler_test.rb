@@ -44,6 +44,34 @@ class AssemblerTest < HawthJitTest
     EXPECTED
   end
 
+  def test_ccall_swapping_params
+    a = asm.param(0)
+    b = asm.param(1)
+    x = asm.c_call(0xdeadbeef, b, a)
+    asm.ret x
+
+    _code, disasm = compile(ir)
+
+    assert_equal disasm, <<~EXPECTED
+      L0:
+      # v1 = param 0
+      # v2 = param 1
+      # v3 = c_call 3735928559 v2 v1
+      push rdi
+      push rsi
+      mov rax, rdi
+      mov rdi, rsi
+      mov rsi, rax
+      call 0xDEADBEEF
+      pop rsi
+      pop rdi
+      mov rdx, rax
+      # ret v3
+      mov rax, rdx
+      ret
+    EXPECTED
+  end
+
   def test_phi
     block_a = ir.new_block("a")
     block_b = ir.new_block("b")
